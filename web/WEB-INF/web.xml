@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app version="3.0" xmlns="http://java.sun.com/xml/ns/javaee" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_3_0.xsd">
+<!--    <filter>
+        <description>Checks Session for a request</description>
+        <filter-name>SessionFilter</filter-name>
+        <filter-class>filter.SessionFilter</filter-class>
+        <init-param>
+            <description>The attribute is compulsary. Its value should be your session attribute name that you
+                set after sucessfull login</description>
+            <param-name>sessionAttributeName</param-name>
+            <param-value>USER_ID</param-value>
+        </init-param>
+        <init-param>
+            <description>*compulsary. Its value should be your login page url. If invalid session found, this filter will redirect request to this page.</description>
+            <param-name>loginUrl</param-name>
+            <param-value>/login/login.jsp</param-value>
+        </init-param>
+        <init-param>
+            <description>Optional. If you want that login should be allowed from only some restricted urls, use this</description>
+            <param-name>loginAllowedFrom</param-name>
+            <param-value>/login/login.jsp,/welcome/support.jsp</param-value>
+        </init-param>
+        <init-param>
+            <description>This is compulsary with "loginAllowedFrom". It's value should be where you are submitting your login form.</description>
+            <param-name>loginSubmitUrl</param-name>
+            <param-value>/login/matchDetails.jsp</param-value>
+        </init-param>
+    </filter>-->
+<!--    <filter-mapping>
+        <filter-name>SessionFilter</filter-name>
+        <url-pattern>/mysql/*</url-pattern>
+    </filter-mapping>-->
+    <session-config>
+        <session-timeout>
+            30
+        </session-timeout>
+    </session-config>
+    <context-param>
+        <param-name>logoutTime</param-name>
+        <param-value>30</param-value>
+    </context-param>
+    <context-param>
+        <param-name>serverPort</param-name>
+        <param-value>8080</param-value>
+    </context-param>
+</web-app>

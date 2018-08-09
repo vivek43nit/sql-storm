@@ -1,0 +1,127 @@
+/*
+To change this license header, choose License Headers in Project Properties.
+To change this template file, choose Tools | Templates
+and open the template in the editor.
+*/
+/* 
+    Created on : Apr 21, 2015, 10:41:31 AM
+    Author     : Vivek
+*/
+.table{
+    margin: 0 auto;
+    border-collapse: collapse;
+    border: none;
+    width: 100%;
+    margin-top: 0px;
+    padding-top: 0px;
+}
+.table div{
+    display: table-row;
+}
+.table div span{
+    display: table-cell;
+    vertical-align: middle;
+    padding-right: 5px;
+}
+
+.table.data{
+    background-color: #EEE;
+    color:#777;
+    border: 1px solid #CCC;
+    border-bottom: 2px solid #CCC;
+}
+.table div.headerRow{
+    background-color: #CCC;
+    font-weight: bold;
+}
+.table div.alt{
+    background-color: white;
+}
+
+table.table{
+    margin: 0 auto;
+    border-collapse: collapse;
+}
+table.table tr:nth-child(2n){
+    background-color: #EEE;
+}
+table.table tr td{
+    vertical-align: middle;
+    padding-right: 5px;
+    white-space: nowrap;
+    border-left: 1px solid seagreen;
+}
+table.table.data{
+    background-color: #EEE;
+    color:#777;
+    border: 1px solid #CCC;
+    border-bottom: 2px solid #CCC;
+}
+table.table tr th{
+    /*background-color: #CCC;*/
+    white-space: nowrap;
+    border-bottom: 1px solid #CCC;
+    font-weight: bold;
+    border-left: 1px solid seagreen;
+}
+table.table tr.alt{
+    background-color: #EEE;
+}
+
+.tile:before{
+    /*position: fixed;*/
+    display: block;
+    width: 100%;
+    background-color: darkseagreen;
+    color: black;
+    text-align: center;
+    font-weight: bold;
+    content: attr(data-title);
+    height: 30px;
+    font-size: 14px;
+    line-height: 30px;
+}
+.tile.editable:before{
+    background-color:burlywood
+}
+.tile.read-only:before{
+    background-color:cadetblue
+}
+.tile{
+    border:1px solid #CCCCCC;
+    margin-bottom: 10px;
+}
+
+.link{
+    text-decoration: underline;
+    font-weight: bold;
+    cursor: pointer;
+}
+.referedBy{
+    cursor: -webkit-zoom-in;
+    cursor: -moz-zoom-in;
+    background-color: greenyellow;
+}
+.referTo{
+    cursor: -webkit-zoom-out;
+    cursor: -moz-zoom-out;
+    background-color: yellow;
+}
+.topSegmentFilters{
+    height: 25px;
+    display: inline-block;
+    background-color: darksalmon;
+    padding: 2px 5px;
+    border-radius: 5px;
+}
+.topSegmentFilters .input{
+    border-radius: 10px;
+    padding: 0px 8px;
+    width: 30px;
+    line-height: 25px;
+    border: 0px;
+}
+.topSegmentFilters .select{
+    height: 24px;
+    border: 0px;
+}
