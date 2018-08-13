@@ -3,16 +3,16 @@
     Created on : Apr 20, 2015, 5:09:00 PM
     Author     : Vivek
 --%>
-<%@page import="mysql.constants.Constants"%>
-<%@page import="mysql.SessionDTO"%>
+<%@page import="com.vivek.sqlstorm.DatabaseManager"%>
+<%@page import="com.vivek.sqlstorm.constants.Constants"%>
+<%@page import="com.vivek.sqlstorm.dto.SessionDTO"%>
 <%@page import="org.apache.log4j.Logger"%>
 <%@page import="java.sql.DatabaseMetaData"%>
 <%@page import="java.sql.ResultSetMetaData"%>
 <%@page import="java.sql.ResultSet"%>
 <%@page import="java.sql.PreparedStatement"%>
-<%@page import="databasemanager.DatabaseManager"%>
 <%@page import="java.sql.Connection"%>
-<%@page contentType="text/html" pageEncoding="UTF-8"%>
+<%@page contentType="text/html" pageEncoding="UTF-8" errorPage="error.jsp"%>
 <%! static Logger logger = Logger.getLogger("groups.jsp");%>
 <%
     String groupName = request.getParameter("group");

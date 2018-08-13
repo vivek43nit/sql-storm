@@ -3,55 +3,66 @@
     Created on : Aug 7, 2018, 4:14:19 AM
     Author     : root
 --%>
-<%@page import="mysql.ReferenceDTO"%>
-<%@page import="mysql.MultiMap"%>
-<%@page import="mysql.TableMetaData"%>
+<%@page import="com.vivek.sqlstorm.dto.ColumnDTO"%>
+<%@page import="com.vivek.sqlstorm.DatabaseManager"%>
+<%@page import="com.vivek.sqlstorm.dto.TableDTO"%>
+<%@page import="com.vivek.sqlstorm.dto.SessionDTO"%>
+<%@page import="com.vivek.sqlstorm.constants.Constants"%>
 <%@page import="org.json.JSONObject"%>
-<%@page import="mysql.constants.Constants"%>
-<%@page import="mysql.SessionDTO"%>
 <%@page import="org.apache.log4j.Logger"%>
-<%@page contentType="text/html" pageEncoding="UTF-8"%>
+<%@page contentType="text/html" pageEncoding="UTF-8" errorPage="error.jsp"%>
 <%! static Logger logger = Logger.getLogger("traceRow.jsp");%>
 <%
     SessionDTO sessionDetails = (SessionDTO)session.getAttribute(Constants.SESSION_DETAILS);
     if(sessionDetails == null){
         return;
     }
-    String database = request.getParameter("db");   //database name
-    String tableName = request.getParameter("t");   //table Name
+    
+    String database = request.getParameter("database");   //database name
+    String tableName = request.getParameter("table");   //table Name
     
     if(database == null || tableName == null){
-        logger.error("Invalid Parameter");
+        response.sendError(response.SC_BAD_REQUEST, "Invalid request");
         return;
     }
     
     String rowStr = request.getParameter("row"); //row data
-    JSONObject rowData = null;
+    JSONObject data = null;
     if(rowStr != null && !rowStr.isEmpty()){
-        rowData = new JSONObject(rowStr);
+        data = new JSONObject(rowStr);
     }
     
-    TableMetaData tableMetaData = TableMetaData.getInstance(sessionDetails.getGroup(), database, tableName);
+    TableDTO tableMetaData = DatabaseManager.getInstance().getMetaData(sessionDetails.getGroup(), database).getTableMetaData(tableName);
     
-    MultiMap<String, ReferenceDTO> dereferences = tableMetaData.getReferTo();
-    for(String column : dereferences.keySet()){
+    boolean isAppend = false;
+    for(ColumnDTO column : tableMetaData.getColumns()){
+        if(column.getReferTo().isEmpty()){
+            continue;
+        }
         %><jsp:include page="getDeReferences.jsp">
-            <jsp:param name="db" value="<%=database %>"></jsp:param>
-            <jsp:param name="t" value="<%=tableName %>"></jsp:param>
-            <jsp:param name="c" value="<%=column%>"></jsp:param>
-            <jsp:param name="k" value="<%=rowData.getString(column)%>"></jsp:param>
+            <jsp:param name="database" value="<%=database %>"></jsp:param>
+            <jsp:param name="table" value="<%=tableName %>"></jsp:param>
+            <jsp:param name="column" value="<%=column.getName() %>"></jsp:param>
             <jsp:param name="row" value="<%=rowStr %>"></jsp:param>
+            <jsp:param name="append" value="<%=isAppend %>"></jsp:param>
+            <jsp:param name="includeSelf" value="false"></jsp:param>
         </jsp:include><%
+        isAppend = true;
     }
     
-    MultiMap<String, ReferenceDTO> references = tableMetaData.getReferedBy();
-    for(String column : references.keySet()){
+    boolean includeSelf = true;
+    for(ColumnDTO column : tableMetaData.getColumns()){
+        if(column.getReferencedBy().isEmpty()){
+            continue;
+        }
         %><jsp:include page="getReferences.jsp">
-            <jsp:param name="db" value="<%=database %>"></jsp:param>
-            <jsp:param name="t" value="<%=tableName %>"></jsp:param>
-            <jsp:param name="c" value="<%=column%>"></jsp:param>
-            <jsp:param name="k" value="<%=rowData.getString(column)%>"></jsp:param>
-            <jsp:param name="a" value="1"></jsp:param>
+            <jsp:param name="database" value="<%=database %>"></jsp:param>
+            <jsp:param name="table" value="<%=tableName %>"></jsp:param>
+            <jsp:param name="column" value="<%=column.getName() %>"></jsp:param>
+            <jsp:param name="row" value="<%=rowStr %>"></jsp:param>
+            <jsp:param name="append" value="<%=isAppend %>"></jsp:param>
+            <jsp:param name="includeSelf" value="<%=includeSelf %>"></jsp:param>
         </jsp:include><%
+        includeSelf = false;
     }
 %>

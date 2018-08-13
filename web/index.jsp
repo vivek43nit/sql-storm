@@ -4,4 +4,4 @@
     Author     : Vivek
 --%>
 <%@page contentType="text/html" pageEncoding="UTF-8"%>
-<% response.sendRedirect("/mysql/layout.jsp"); %>
+<% response.sendRedirect("mysql/layout.jsp"); %>

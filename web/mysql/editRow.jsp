@@ -3,12 +3,20 @@
     Created on : Apr 22, 2015, 4:47:31 PM
     Author     : Vivek
 --%>
+<%@page import="com.vivek.sqlstorm.dto.SessionDTO"%>
+<%@page import="com.vivek.sqlstorm.constants.Constants"%>
+<%@page import="com.vivek.sqlstorm.DatabaseManager"%>
 <%@page import="java.sql.ResultSetMetaData"%>
 <%@page import="java.sql.ResultSet"%>
 <%@page import="java.sql.PreparedStatement"%>
 <%@page import="java.util.ArrayList"%>
-<%@page contentType="text/html" pageEncoding="UTF-8"%>
+<%@page contentType="text/html" pageEncoding="UTF-8" errorPage="error.jsp"%>
 <%
+    SessionDTO sessionDetails = (SessionDTO)session.getAttribute(Constants.SESSION_DETAILS);
+    if(sessionDetails == null){
+        return;
+    }
+    
     String tableIndex = request.getParameter("ti");
     String rowIndex = request.getParameter("ri");
     
@@ -26,6 +34,13 @@
         ResultSet rs = ps.getResultSet();
 
         ResultSetMetaData metaData = rs.getMetaData();
+        
+        String databaseName = metaData.getCatalogName(1);
+        if(!DatabaseManager.getInstance().isUpdatableConnection(sessionDetails.getGroup(), databaseName)){
+            response.sendError(response.SC_FORBIDDEN, "Update Permission is prohibitted for this database");
+            return;
+        }
+        
         ArrayList<String> parameters = new ArrayList<String>();
 
         if(rs.absolute(ri)){

@@ -3,83 +3,86 @@
     Created on : Apr 23, 2015, 5:48:54 PM
     Author     : Vivek
 --%>
-<%@page import="mysql.TableMetaData"%>
-<%@page import="mysql.constants.Constants"%>
-<%@page import="mysql.SessionDTO"%>
+<%@page import="com.vivek.sqlstorm.utils.DBHelper"%>
+<%@page import="java.util.List"%>
+<%@page import="com.vivek.sqlstorm.dto.ColumnPath"%>
+<%@page import="com.vivek.sqlstorm.dto.ColumnDTO"%>
+<%@page import="com.vivek.sqlstorm.dto.DatabaseDTO"%>
+<%@page import="com.vivek.sqlstorm.dto.TableDTO"%>
+<%@page import="com.vivek.sqlstorm.DatabaseManager"%>
+<%@page import="com.vivek.sqlstorm.constants.Constants"%>
+<%@page import="com.vivek.sqlstorm.dto.SessionDTO"%>
+<%@page import="java.util.Iterator"%>
+<%@page import="org.json.JSONArray"%>
 <%@page import="org.json.JSONObject"%>
 <%@page import="org.apache.log4j.Logger"%>
 <%@page import="java.util.ArrayList"%>
-<%@page import="mysql.ReferenceDTO"%>
-<%@page import="mysql.MultiMap"%>
-<%@page contentType="text/html" pageEncoding="UTF-8"%>
+<%@page contentType="text/html" pageEncoding="UTF-8" errorPage="error.jsp"%>
 <%! static Logger logger = Logger.getLogger("getDeReferences.jsp");%>
+<jsp:useBean id="req" class="com.vivek.sqlstorm.dto.request.GetRelationsRequest"/>
+<jsp:setProperty name="req" property="*"/> 
 <%
     SessionDTO sessionDetails = (SessionDTO)session.getAttribute(Constants.SESSION_DETAILS);
     if(sessionDetails == null){
         return;
     }
-    String database = request.getParameter("db");   //database name
-    String tableName = request.getParameter("t");   //table Name
-    String columnName = request.getParameter("c");  //column Name
-    String value = request.getParameter("k");       //key
-    
-    if(tableName == null || columnName == null || value == null){
-        logger.error("Invalid Parameter");
+    logger.debug("request:"+req);
+    if(!req.isValid()){
+        response.sendError(response.SC_BAD_REQUEST, "Invalid request");
         return;
     }
     
-    String rowStr = request.getParameter("row"); //conditions values
-    JSONObject rowData = null;
+    //row data
+    String rowStr = request.getParameter("row"); 
+    JSONObject data = null;
     if(rowStr != null && !rowStr.isEmpty()){
-        rowData = new JSONObject(rowStr);
+        data = new JSONObject(rowStr);
+        req.setData(data);
     }
+    String value = data.getString(req.getColumn());
     
-    TableMetaData tableMetaData = TableMetaData.getInstance(sessionDetails.getGroup(), database, tableName);
-    MultiMap<String,ReferenceDTO> dereferences = tableMetaData.getReferTo();
+    ColumnDTO colMetaData = DatabaseManager.getInstance()
+            .getMetaData(sessionDetails.getGroup(), req.getDatabase())
+            .getTableMetaData(req.getTable())
+            .getColumnMetaData(req.getColumn());
     
-    if(dereferences == null){
+    if(colMetaData.getReferTo().isEmpty()){
         logger.error("References Not Found");
+        out.print("No references found");
         return;
     }
-    
-    ArrayList<ReferenceDTO> referTo = dereferences.get(columnName);
-    boolean flag = false;
-    
-    for(ReferenceDTO x : referTo){
-        if(x.getConditions() != null && rowData != null){
-            JSONObject conditions = x.getConditions();
-            boolean isMatched = true;
-            for(String key : conditions.keySet()){
-                if(!conditions.getString(key).equals(rowData.getString(key))){
-                    isMatched = false;
-                    break;
-                }
-            }
-            if(!isMatched){
+//    
+//    ColumnPath selfPath = new ColumnPath(req.getDatabase(), req.getTable(), req.getColumn());
+//    
+    List<ColumnPath> referToList = colMetaData.getReferTo();;
+//    
+//    can not include self in back referencing because where clause for self will fetch non unique rows
+//    if(req.getIncludeSelf()){
+//        referToList = new ArrayList<ColumnPath>();
+//        referToList.add(selfPath);
+//        referToList.addAll(colMetaData.getReferTo());
+//    }else{
+//        referToList = 
+//    }
+//    
+    for(ColumnPath referTo : referToList){
+        
+        //checking for this relation is valid or not if condition exists
+        if(referTo.getConditions() != null && data != null){
+            if(!DBHelper.isReferToConditionMatch(referTo.getConditions(), data)){
+                logger.error("Conditions Not matched : "+referTo.getConditions()+" == "+data);
                 continue;
-            }else{
-                logger.error("Conditions Not matched : "+x.getConditions()+" == "+conditions);
             }
         }
-        String query = String.format("select * from %s where %s='%s'", x.getReferenceTableName(), x.getReferenceColumnName(), value); 
-        if(flag)
-        {
-            %><jsp:include page="execute.jsp">
-                <jsp:param name="database" value="<%=x.getReferenceDatabaseName()%>"></jsp:param>
-                <jsp:param name="a" value="1"></jsp:param>
-                <jsp:param name="qt" value="S"></jsp:param> 
-                <jsp:param name="q" value="<%=query%>"></jsp:param>
-                <jsp:param name="rel" value="<%=x.getReferenceColumnName() %>"></jsp:param>
-            </jsp:include><%
-        }
-        else{
-            %><jsp:include page="execute.jsp">
-                <jsp:param name="database" value="<%=x.getReferenceDatabaseName()%>"></jsp:param>
-                <jsp:param name="qt" value="S"></jsp:param> 
-                <jsp:param name="q" value="<%=query%>"></jsp:param>
-                <jsp:param name="rel" value="<%=x.getReferenceColumnName() %>"></jsp:param>
-            </jsp:include><%
-        }
-        flag = true;
+        String query = String.format("select * from %s where %s='%s'", referTo.getTable(), referTo.getColumn(), value); 
+        %><jsp:include page="execute.jsp">
+            <jsp:param name="database" value="<%=referTo.getDatabase()%>"></jsp:param>
+            <jsp:param name="append" value="${req.append}"></jsp:param>
+            <jsp:param name="queryType" value="S"></jsp:param> 
+            <jsp:param name="query" value="<%=query%>"></jsp:param>
+            <jsp:param name="info" value="<%=referTo.getColumn()%>"></jsp:param>
+            <jsp:param name="relation" value="referTo"></jsp:param>
+        </jsp:include><%
+        req.setAppend(true);
     }
 %>

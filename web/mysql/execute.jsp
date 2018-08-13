@@ -3,48 +3,42 @@
     Created on : Apr 21, 2015, 1:06:30 PM
     Author     : Vivek
 --%>
-<%@page import="mysql.constants.Constants"%>
-<%@page import="mysql.SessionDTO"%>
+<%@page import="com.vivek.sqlstorm.DatabaseManager"%>
+<%@page import="com.vivek.sqlstorm.constants.Constants"%>
+<%@page import="com.vivek.sqlstorm.dto.SessionDTO"%>
 <%@page import="org.apache.log4j.Logger"%>
 <%@page import="java.util.ArrayList"%>
 <%@page import="java.sql.ResultSet"%>
 <%@page import="java.sql.PreparedStatement"%>
-<%@page import="databasemanager.DatabaseManager"%>
 <%@page import="java.sql.Connection"%>
-<%@page contentType="text/html" pageEncoding="UTF-8"%>
+<%@page contentType="text/html" pageEncoding="UTF-8" errorPage="error.jsp"%>
 <%! static Logger logger = Logger.getLogger("execute.jsp");%>
+<jsp:useBean id="req" class="com.vivek.sqlstorm.dto.request.ExecuteRequest" scope="page"/>
+<jsp:setProperty name="req" property="*"/> 
 <%
     SessionDTO sessionDetails = (SessionDTO)session.getAttribute(Constants.SESSION_DETAILS);
     if(sessionDetails == null){
         return;
     }
-    
-    String query = request.getParameter("q");
-    String queryType = request.getParameter("qt");
-    String database = request.getParameter("database");
-    String relation = request.getParameter("rel");
-    
-    boolean appendResult = false;
-    if(request.getParameter("a") != null){
-        appendResult = true;
-    }    
-    if(query == null || queryType == null)
+    if(!req.isValid()){
+        response.sendError(response.SC_BAD_REQUEST, "Invalid request");
         return;
+    }
     
     ArrayList<PreparedStatement> currResults = (ArrayList<PreparedStatement>)session.getAttribute("RS");
     if(currResults == null)
     {
         return;
     }
-    logger.debug(currResults.size()+"");
+    logger.debug("Current Cache ResultSet count :"+currResults.size()+"");
     
-    Connection con = DatabaseManager.getInstance().getConnection(sessionDetails.getGroup(), database);
+    Connection con = DatabaseManager.getInstance().getConnection(sessionDetails.getGroup(), req.getDatabase());
     PreparedStatement ps = null;
-    logger.info(query);
-    ps = con.prepareStatement(query,ResultSet.TYPE_SCROLL_SENSITIVE,ResultSet.CONCUR_UPDATABLE);
-    if(queryType.equals("S")){
+    logger.info(req.getQuery());
+    ps = con.prepareStatement(req.getQuery(), ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_UPDATABLE);
+    if(req.getQueryType().equals("S")){
         ps.executeQuery();
-        if(!appendResult)
+        if(!req.getAppend())
         {
             for(PreparedStatement p:currResults){
                 p.close();
@@ -54,9 +48,14 @@
         currResults.add(ps);
         %>
         <jsp:include page="viewResultSet.jsp">
-            <jsp:param name="rel" value="<%=relation%>"></jsp:param>
+            <jsp:param name="info" value="${req.info}"></jsp:param>
+            <jsp:param name="relation" value="${req.relation}"></jsp:param>
         </jsp:include><%
-    }else if(queryType.equals("U")){
+    }else if(req.getQueryType().equals("U")){
+        if(!DatabaseManager.getInstance().isUpdatableConnection(sessionDetails.getGroup(), req.getDatabase())){
+            response.sendError(response.SC_FORBIDDEN, "Update Permission is prohibitted for this database");
+            return;
+        }
         int count = ps.executeUpdate();
         ps.close();
         out.print(count);

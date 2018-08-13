@@ -3,10 +3,9 @@
     Created on : Apr 20, 2015, 5:08:34 PM
     Author     : Vivek
 --%>
-
 <%@page import="java.sql.PreparedStatement"%>
 <%@page import="java.util.ArrayList"%>
-<%@page contentType="text/html" pageEncoding="UTF-8"%>
+<%@page contentType="text/html" pageEncoding="UTF-8" errorPage="error.jsp"%>
 <%
     ArrayList<PreparedStatement> list = (ArrayList<PreparedStatement>)session.getAttribute("RS");
     if(list != null){
@@ -206,7 +205,6 @@
                 <jsp:include page="databases.jsp">
                     <jsp:param name="database" value="<%=database%>"></jsp:param>
                 </jsp:include>
-                
                 <div class="topSegmentFilters">
                     <span>Range : <input class="input" type="text" value="0" id="limitStart" placeholder="Start"/></span> -> <span><input class="input" type="text" value="10" id="limitEnd" placeholder="End"/></span>
                 </div>
@@ -223,7 +221,11 @@
             </div>
                 <div style="height: 100%; width: 100%; margin: 0px; padding: 0px">
                     <div class="leftSegment">
-                        <div class="tile" data-title="Tables" style="margin: 0px;height: 380px;"><jsp:include page="tables.jsp"></jsp:include></div>
+                        <div class="tile" data-title="Tables" style="margin: 0px;height: 380px;">
+                            <jsp:include page="tables.jsp">
+                                <jsp:param name="database" value="<%=database%>"></jsp:param>
+                            </jsp:include>
+                        </div>
                         <div class="filterSegment tile" data-title="Filters">
                             <div id="filters">
                                 Please Click on a Table

@@ -3,145 +3,78 @@
     Created on : Apr 22, 2015, 3:42:43 PM
     Author     : Vivek
 --%>
-<%@page import="mysql.util.CommonFunctions"%>
-<%@page import="mysql.relations.MappingTableDto"%>
-<%@page import="mysql.TableMetaData"%>
-<%@page import="mysql.constants.Constants"%>
-<%@page import="mysql.SessionDTO"%>
+<%@page import="com.vivek.sqlstorm.dto.request.ExecuteRequest"%>
+<%@page import="com.vivek.sqlstorm.dto.MappingTableDto"%>
+<%@page import="com.vivek.sqlstorm.utils.DBHelper"%>
+<%@page import="com.vivek.sqlstorm.dto.TableDTO"%>
+<%@page import="com.vivek.sqlstorm.dto.ColumnPath"%>
+<%@page import="java.util.List"%>
+<%@page import="com.vivek.sqlstorm.DatabaseManager"%>
+<%@page import="com.vivek.sqlstorm.dto.ColumnDTO"%>
+<%@page import="com.vivek.utils.CommonFunctions"%>
+<%@page import="com.vivek.sqlstorm.dto.SessionDTO"%>
+<%@page import="com.vivek.sqlstorm.constants.Constants"%>
+<%@page import="org.json.JSONArray"%>
 <%@page import="org.json.JSONObject"%>
 <%@page import="org.apache.log4j.Logger"%>
 <%@page import="java.util.ArrayList"%>
-<%@page import="mysql.ReferenceDTO"%>
-<%@page import="mysql.MultiMap"%>
-<%@page contentType="text/html" pageEncoding="UTF-8"%>
+<%@page contentType="text/html" pageEncoding="UTF-8" errorPage="error.jsp"%>
 <%! static Logger logger = Logger.getLogger("getReferences.jsp");%>
+<jsp:useBean id="req" class="com.vivek.sqlstorm.dto.request.GetRelationsRequest"/>
+<jsp:setProperty name="req" property="*"/> 
 <%
     SessionDTO sessionDetails = (SessionDTO)session.getAttribute(Constants.SESSION_DETAILS);
     if(sessionDetails == null){
         return;
     }
-    
-    String database = request.getParameter("db");   //database name
-    String tableName = request.getParameter("t");   //table Name
-    String columnName = request.getParameter("c");  //column Name
-    String value = request.getParameter("k");       //key
-    
-    if(tableName == null || columnName == null || value == null){
-        logger.error("Invalid Parameter");
+    logger.debug("request:"+req);
+    if(!req.isValid()){
+        response.sendError(response.SC_BAD_REQUEST, "Invalid request");
         return;
     }
     
-    String currentInfo = CommonFunctions.getName(database, tableName, columnName);
+    //row data
+    String rowStr = request.getParameter("row"); 
+    JSONObject data = null;
+    if(rowStr != null && !rowStr.isEmpty()){
+        data = new JSONObject(rowStr);
+        req.setData(data);
+    }
+    String value = data.getString(req.getColumn());
     
-    TableMetaData tableMetaData = TableMetaData.getInstance(sessionDetails.getGroup(), database, tableName);
-    MultiMap<String,ReferenceDTO> references = tableMetaData.getReferedBy();
+    TableDTO tableMetaData = DatabaseManager.getInstance()
+            .getMetaData(sessionDetails.getGroup(), req.getDatabase())
+            .getTableMetaData(req.getTable());
     
-    if(references == null){
+    ColumnDTO colMetaData = tableMetaData.getColumnMetaData(req.getColumn());
+    
+    if(colMetaData.getReferencedBy().isEmpty()){
         logger.error("References Not Found");
+        out.print("No references found");
         return;
     }
     
-    ArrayList<ReferenceDTO> referTo = new ArrayList<ReferenceDTO>();
+    ColumnPath selfPath = new ColumnPath(req.getDatabase(), req.getTable(), req.getColumn());
     
-    ReferenceDTO current = new ReferenceDTO();
-    current.setTableName(tableName);
-    current.setColumnName(columnName);
-    current.setDatabaseName(database);
-    referTo.add(current);
-    
-    referTo.addAll(references.get(columnName));
-    
-    boolean flag = false;
-    String isAppend = request.getParameter("a");
-    if(isAppend != null && isAppend.equals("1")){
-        flag = true;
+    List<ColumnPath> referencedByList = null;
+    if(req.getIncludeSelf()){
+        referencedByList = new ArrayList<ColumnPath>();
+        referencedByList.add(selfPath);
+        referencedByList.addAll(colMetaData.getReferencedBy());
+    }else{
+        referencedByList = colMetaData.getReferencedBy();
     }
     
-    for(ReferenceDTO x : referTo){
-        String referenceInfo = CommonFunctions.getName(x.getDatabaseName(), x.getTableName(), x.getColumnName());
-        if(referenceInfo.equals(currentInfo)){
-            referenceInfo = "SELF";
-        }else{
-            referenceInfo = currentInfo+"->"+referenceInfo;
+    for(ColumnPath referencedBy : referencedByList){
+        for(ExecuteRequest r : DBHelper.getExecuteRequestsForReferedByReq(sessionDetails.getGroup(), selfPath, referencedBy, value, req.isAppend())){
+            %><jsp:include page="execute.jsp">
+                <jsp:param name="database" value="<%=r.getDatabase() %>"></jsp:param>
+                <jsp:param name="queryType" value="S"></jsp:param> 
+                <jsp:param name="query" value="<%=r.getQuery() %>"></jsp:param>
+                <jsp:param name="info" value="<%=r.getInfo() %>"></jsp:param>
+                <jsp:param name="append" value="<%=r.getAppend() %>"></jsp:param>
+                <jsp:param name="relation" value="<%=r.getRelation() %>"></jsp:param>
+            </jsp:include><%
         }
-        
-        TableMetaData currMetaData = TableMetaData.getInstance(sessionDetails.getGroup(), x.getDatabaseName(), x.getTableName());
-        String query = "";
-        
-        //generation extra where queries if any
-        if(x.getConditions() != null){
-            for(String key : x.getConditions().keySet()){
-                query += String.format(" and %s='%s'", key, x.getConditions().get(key));
-            }
-        }
-        
-        boolean isResolved = false;
-        if(currMetaData.getMappingInfo() != null){
-            
-            isResolved = true;
-            MappingTableDto mapping = currMetaData.getMappingInfo();
-            
-            String nextColumnName = null;
-            if(x.getColumnName().equals(mapping.getFrom())){
-                nextColumnName = mapping.getTo();
-            }else if(x.getColumnName().equals(mapping.getTo())){
-                nextColumnName = mapping.getFrom();
-            }else{
-                isResolved = false;
-            }
-            if(isResolved){
-                ArrayList<ReferenceDTO> refTo = currMetaData.getReferTo().get(nextColumnName);
-                for(ReferenceDTO ref : refTo){
-                    String finalQuery = String.format("select * from %s where %s in (select %s from %s where %s='%s' %s)",
-                            ref.getReferenceTableName(), ref.getReferenceColumnName(), ref.getColumnName(), ref.getTableName(), x.getColumnName(),value, query);
-                    
-                    String info = "AUTO-RESOLVE : "+referenceInfo+"->"+
-                            CommonFunctions.getName(ref.getReferenceDatabaseName(), ref.getReferenceTableName(), ref.getReferenceColumnName());
-                    
-                    if(flag)
-                    {
-                        %><jsp:include page="execute.jsp">
-                            <jsp:param name="database" value="<%=ref.getDatabaseName() %>"></jsp:param>
-                            <jsp:param name="a" value="1"></jsp:param>
-                            <jsp:param name="qt" value="S"></jsp:param> 
-                            <jsp:param name="q" value="<%=finalQuery %>"></jsp:param>
-                            <jsp:param name="rel" value="<%=info %>"></jsp:param>
-                        </jsp:include><%
-                    }
-                    else{
-                        %><jsp:include page="execute.jsp">
-                            <jsp:param name="database" value="<%=ref.getDatabaseName() %>"></jsp:param>
-                            <jsp:param name="qt" value="S"></jsp:param> 
-                            <jsp:param name="q" value="<%=finalQuery %>"></jsp:param>
-                            <jsp:param name="rel" value="<%=info %>"></jsp:param>
-                        </jsp:include><%
-                    }
-                    flag = true;
-                }
-            }
-        }
-        
-        if(!isResolved){
-            query = String.format("select * from %s where %s='%s'", x.getTableName(), x.getColumnName(), value)+query;
-            if(flag)
-            {
-                %><jsp:include page="execute.jsp">
-                    <jsp:param name="database" value="<%=x.getDatabaseName() %>"></jsp:param>
-                    <jsp:param name="a" value="1"></jsp:param>
-                    <jsp:param name="qt" value="S"></jsp:param> 
-                    <jsp:param name="q" value="<%=query%>"></jsp:param>
-                    <jsp:param name="rel" value="<%=referenceInfo %>"></jsp:param>
-                </jsp:include><%
-            }
-            else{
-                %><jsp:include page="execute.jsp">
-                    <jsp:param name="database" value="<%=x.getDatabaseName() %>"></jsp:param>
-                    <jsp:param name="qt" value="S"></jsp:param> 
-                    <jsp:param name="q" value="<%=query%>"></jsp:param>
-                    <jsp:param name="rel" value="<%=referenceInfo %>"></jsp:param>
-                </jsp:include><%
-            }
-            flag = true;
-        }   
     }
 %>

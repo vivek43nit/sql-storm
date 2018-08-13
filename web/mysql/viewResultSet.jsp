@@ -3,31 +3,33 @@
     Created on : Apr 20, 2015, 7:29:46 PM
     Author     : Vivek
 --%>
-<%@page import="mysql.constants.Constants"%>
-<%@page import="mysql.SessionDTO"%>
-<%@page import="mysql.TableMetaData"%>
+<%@page import="java.util.Collection"%>
+<%@page import="com.vivek.sqlstorm.dto.ColumnDTO"%>
+<%@page import="java.util.List"%>
+<%@page import="com.vivek.sqlstorm.DatabaseManager"%>
+<%@page import="com.vivek.sqlstorm.dto.TableDTO"%>
+<%@page import="com.vivek.sqlstorm.constants.Constants"%>
+<%@page import="com.vivek.sqlstorm.dto.SessionDTO"%>
 <%@page import="org.apache.log4j.Logger"%>
-<%@page import="mysql.ReferenceDTO"%>
-<%@page import="mysql.MultiMap"%>
 <%@page import="java.util.ArrayList"%>
 <%@page import="java.sql.PreparedStatement"%>
-<%@page import="databasemanager.DatabaseManager"%>
 <%@page import="java.sql.Connection"%>
 <%@page import="java.sql.ResultSet"%>
 <%@page import="java.sql.ResultSetMetaData"%>
-<%@page contentType="text/html" pageEncoding="UTF-8"%>
+<%@page contentType="text/html" pageEncoding="UTF-8" errorPage="error.jsp"%>
 <%! static Logger logger = Logger.getLogger("viewResultSet.jsp");%>
 <%
     SessionDTO sessionDetails = (SessionDTO) session.getAttribute(Constants.SESSION_DETAILS);
     if (sessionDetails == null) {
         return;
     }
-    String tableInfo = request.getParameter("rel");
-
     ArrayList<PreparedStatement> currResult = (ArrayList<PreparedStatement>) session.getAttribute("RS");
     if (currResult == null) {
         return;
     }
+    
+    String tableInfo = request.getParameter("info");
+    String relation = request.getParameter("relation");
     
     //getting result set for current view to show
     ResultSet rs = currResult.get(currResult.size() - 1).getResultSet();
@@ -37,32 +39,35 @@
     String databaseName = metaData.getCatalogName(1);
     String tableName = metaData.getTableName(1);
     
-    TableMetaData tableMetaData = TableMetaData.getInstance(sessionDetails.getGroup(), databaseName, tableName);
-
-    MultiMap<String, ReferenceDTO> referedBy = tableMetaData.getReferedBy();
-    MultiMap<String, ReferenceDTO> refereTo = tableMetaData.getReferTo();
-
-    int colCount = metaData.getColumnCount();
-    if (tableInfo != null && !tableInfo.isEmpty() && !"null".equals(tableInfo)) {
-        tableInfo = String.format("%s.%s :: %s", databaseName, tableName, tableInfo);
-    } else {
-        tableInfo = String.format("%s.%s", databaseName, tableName);;
-    }
-    
     DatabaseManager dbManager = DatabaseManager.getInstance();
+    
+    TableDTO tableMetaData = dbManager.getMetaData(sessionDetails.getGroup(), databaseName).getTableMetaData(tableName);
+
+//    if (tableInfo != null && !tableInfo.isEmpty() && !"null".equals(tableInfo)) {
+//        tableInfo = String.format("%s.%s :: %s", databaseName, tableName, tableInfo);
+//    } else {
+//        tableInfo = ;;
+//    }
+    
     boolean isEditable = dbManager.isUpdatableConnection(sessionDetails.getGroup(), databaseName);
     
     String tableId = ""+(currResult.size()-1);
+    int colCount = metaData.getColumnCount();
+    Collection<ColumnDTO> columns = tableMetaData.getColumns();
 %>
-<div id="table-<%=tableId%>" class="tile <%=isEditable?"editable":"read-only"%>" data-title="<%=tableInfo %>">
-    <div style="margin: 0px;">
-    <input data-type="none" type="hidden" class="data" name="db" value="<%=databaseName%>"/>
-    <input data-type="none" type="hidden" class="data" name="t" value="<%=tableName%>"/>
+<div id="table-<%=tableId%>" class="tile  <%=relation%>">
+    <div class="tableHeader <%=isEditable?"editable":"read-only"%>">
+        <span class="tableName"><%= databaseName%> -> <span style="font-style: italic;font-family: monospace;font-weight: bold"><%=tableName%></span></span>
+        <span class="relationInfo"><%=tableInfo %></span>
+    </div>
+    <div style="margin: 0px;border-radius: 0px">
+    <input data-type="none" type="hidden" class="data" name="database" value="<%=databaseName%>"/>
+    <input data-type="none" type="hidden" class="data" name="table" value="<%=tableName%>"/>
     <input data-type="none" type="hidden" class="data" name="table-index" value="<%=tableId%>"/>
     <table class="table">
         <tr>
             <th data-number="<%=currResult.size() - 1%>" class="link">
-                <% if(dbManager.isUpdatableConnection(sessionDetails.getGroup(), databaseName)){ %>
+                <% if(isEditable){ %>
                 <span onclick="MySQl.addRow(this.parentNode)">Add</span>
                 <% } %>
             </th>
@@ -83,14 +88,15 @@
             </td>
             <%
             for (int i = 1; i <= colCount; i++) {
-                String data = tableMetaData.getFinalValueFromDb(i, rs.getString(i));
+                String colName = metaData.getColumnName(i);
+                String data = tableMetaData.getColumnMetaData(colName).getFinalValueFromDb(rs.getString(i));
                 String classes = "";
-                if(referedBy.containsKey(metaData.getColumnName(i))){
+                if(tableMetaData.getColumnMetaData(colName).getReferencedBy().size() > 0){
                     classes = "link referedBy";
-                }else if(refereTo.containsKey(metaData.getColumnName(i))){
+                }else if(tableMetaData.getColumnMetaData(colName).getReferTo().size() > 0){
                     classes = "link referTo";
                 }
-            %><td name="<%=metaData.getColumnLabel(i)%>" class="<%=classes%>" onclick="MySQl.handleReference(this)"><%=data%></td>
+                %><td name="<%=colName %>" class="<%=classes%>" onclick="MySQl.handleReference(this)"><%=data%></td>
             <%}%>
         </tr>
         <%}%>

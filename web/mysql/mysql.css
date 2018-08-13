@@ -68,41 +68,58 @@ table.table tr.alt{
     background-color: #EEE;
 }
 
-.tile:before{
-    /*position: fixed;*/
-    display: block;
+.tableHeader{
     width: 100%;
     background-color: darkseagreen;
     color: black;
     text-align: center;
-    font-weight: bold;
-    content: attr(data-title);
     height: 30px;
     font-size: 14px;
     line-height: 30px;
+    border-radius: 0px;
+    margin-bottom: 0px !important;
 }
-.tile.editable:before{
+.tableHeader.editable{
     background-color:burlywood
 }
-.tile.read-only:before{
+.tableHeader.read-only{
     background-color:cadetblue
 }
+.tableName{
+    float: left;
+    margin-left: 10px;
+}
+.relationInfo{
+    float: right;
+    margin-right: 10px;
+}
+
 .tile{
     border:1px solid #CCCCCC;
     margin-bottom: 10px;
 }
-
+.tile.referedBy>div{
+    border-left: 8px solid greenyellow;
+    border-radius: 0px;
+}
+.tile.referTo>div{
+    border-left: 8px solid yellow;
+    border-radius: 0px;
+}
+.tile.self>.tableHeader.read-only{
+    background-color:burlywood;
+}
 .link{
     text-decoration: underline;
     font-weight: bold;
     cursor: pointer;
 }
-.referedBy{
+td.referedBy{
     cursor: -webkit-zoom-in;
     cursor: -moz-zoom-in;
     background-color: greenyellow;
 }
-.referTo{
+td.referTo{
     cursor: -webkit-zoom-out;
     cursor: -moz-zoom-out;
     background-color: yellow;

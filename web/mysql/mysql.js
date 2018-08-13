@@ -62,7 +62,7 @@ var MySQl = {
         return json;
     },
     "traceRow" : function(db, t, ele){
-        var query = 'db='+ db + '&t=' + t +"&row="+RH.enc(JSON.stringify(MySQl.getRowDataAsJson(ele.parentNode)));
+        var query = 'database='+ db + '&table=' + t +"&row="+RH.enc(JSON.stringify(MySQl.getRowDataAsJson(ele.parentNode)));
         RH.server.get('traceRow.jsp', query, 'rightSegment', RH.load);
     },
     "getCurrentTableEle" : function(ele){
@@ -81,20 +81,14 @@ var MySQl = {
         if(query == null){
             return;
         }
-        query+= '&c=' + ele.getAttribute("name") + '&k=' + ele.innerHTML+"&row="+RH.enc(JSON.stringify(MySQl.getRowDataAsJson(ele.parentNode)));
+        query+= '&column='+ele.getAttribute("name");
+        query+= "&row="+RH.enc(JSON.stringify(MySQl.getRowDataAsJson(ele.parentNode)));
+        query+= "&append=false&includeSelf=true";
         if(ele.classList.contains("referedBy")){
             RH.server.get('getReferences.jsp', query, 'rightSegment', RH.load);
         }else{
             RH.server.get('getDeReferences.jsp', query, 'rightSegment', RH.load);
         }
-    },
-    "getReference": function (db, t, c, ele) {
-        var query = 'db='+ db + '&t=' + t + '&c=' + c + '&k=' + ele.innerHTML+"&row="+RH.enc(JSON.stringify(MySQl.getRowDataAsJson(ele.parentNode)));
-        RH.server.get('getReferences.jsp', query, 'rightSegment', RH.load);
-    },
-    "getDeReference": function (db, t, c, ele) {
-        var query = 'db='+ db + '&t=' + t + '&c=' + c + '&k=' + ele.innerHTML+"&row="+RH.enc(JSON.stringify(MySQl.getRowDataAsJson(ele.parentNode)));
-        RH.server.get('getDeReferences.jsp', query, 'rightSegment', RH.load);
     },
     "getEditDiv": function (title, oldData, isNullable) {
         var d = document.createElement('div');
@@ -242,7 +236,11 @@ function selectTable(ele, isResetFilter) {
     }
     var query = "select * from " + ele.value + whereClause +orderByQuery+ " limit " + sLimit + "," + (eLimit - sLimit);
     
-    var par = "group="+group+"&database="+database+"&table="+ele.value+"&qt=S&q=" + query;
+    var par = "group="+group
+            +"&database="+database
+            +"&table="+ele.value+
+            "&queryType=S&query=" + query;
+    
     if (isResetFilter)
     {
         RH.server.get('execute.jsp', par, 'rightSegment', callback);

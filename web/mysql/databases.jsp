@@ -3,15 +3,15 @@
     Created on : Apr 20, 2015, 5:09:00 PM
     Author     : Vivek
 --%>
-<%@page import="mysql.constants.Constants"%>
-<%@page import="mysql.SessionDTO"%>
+<%@page import="com.vivek.sqlstorm.constants.Constants"%>
+<%@page import="com.vivek.sqlstorm.DatabaseManager"%>
+<%@page import="com.vivek.sqlstorm.dto.SessionDTO"%>
 <%@page import="java.sql.DatabaseMetaData"%>
 <%@page import="java.sql.ResultSetMetaData"%>
 <%@page import="java.sql.ResultSet"%>
 <%@page import="java.sql.PreparedStatement"%>
-<%@page import="databasemanager.DatabaseManager"%>
 <%@page import="java.sql.Connection"%>
-<%@page contentType="text/html" pageEncoding="UTF-8"%>
+<%@page contentType="text/html" pageEncoding="UTF-8" errorPage="error.jsp"%>
 <%
     SessionDTO sessionDetails = (SessionDTO)session.getAttribute(Constants.SESSION_DETAILS);
     if(sessionDetails == null){
@@ -20,9 +20,6 @@
     }
     
     String database = request.getParameter("database");
-    if(database != null && !database.equals("null")){
-        sessionDetails.setDbName(database);
-    }
     DatabaseManager dbManager = DatabaseManager.getInstance();
 %>
 <form autocomplete="off" id="database-form" method="GET" style="display: inline-block">
