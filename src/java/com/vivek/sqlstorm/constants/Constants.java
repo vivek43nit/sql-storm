@@ -16,4 +16,6 @@ public class Constants {
     public static final String CONNECTION_CONFIGURATION_FILE_NAME = "DatabaseConnection";
     
     public static final String SESSION_DETAILS = "session-details";
+    
+    public static final int DEFAULT_REFERENCES_ROWS_LIMIT = 100;
 }

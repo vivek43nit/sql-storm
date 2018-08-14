@@ -23,6 +23,7 @@
  */
 package com.vivek.sqlstorm.dto.request;
 
+import com.vivek.sqlstorm.constants.Constants;
 import org.json.JSONObject;
 
 /**
@@ -36,11 +37,24 @@ public class GetRelationsRequest {
     private JSONObject data;
     private Boolean append;
     private Boolean includeSelf;
+    private int refRowLimit = Constants.DEFAULT_REFERENCES_ROWS_LIMIT;
 
+    
     public boolean isValid(){
         return database != null && table != null && column != null;
     }
 
+    public int getRefRowLimit() {
+        return refRowLimit;
+    }
+
+    public void setRefRowLimit(int refRowLimit) {
+        this.refRowLimit = refRowLimit;
+    }
+
+    
+
+    
     public Boolean getIncludeSelf() {
         return includeSelf;
     }

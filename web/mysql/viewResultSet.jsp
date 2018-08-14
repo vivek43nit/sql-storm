@@ -55,7 +55,7 @@
     int colCount = metaData.getColumnCount();
     Collection<ColumnDTO> columns = tableMetaData.getColumns();
 %>
-<div id="table-<%=tableId%>" class="tile  <%=relation%>">
+<div id="table-<%=tableId%>" class="table-container  <%=relation%>">
     <div class="tableHeader <%=isEditable?"editable":"read-only"%>">
         <span class="tableName"><%= databaseName%> -> <span style="font-style: italic;font-family: monospace;font-weight: bold"><%=tableName%></span></span>
         <span class="relationInfo"><%=tableInfo %></span>
@@ -71,8 +71,16 @@
                 <span onclick="MySQl.addRow(this.parentNode)">Add</span>
                 <% } %>
             </th>
-            <%for (int i = 1; i <= colCount; i++) {%>
-            <th data-nullable="<%=metaData.isNullable(i)%>"><%=metaData.getColumnLabel(i)%></th>
+            <%for (int i = 1; i <= colCount; i++) {
+                ColumnDTO colMetaData = tableMetaData.getColumnMetaData(metaData.getColumnLabel(i));
+                String _class = "";
+                if(colMetaData.isIndexed()){
+                    _class += " indexed filterable";
+                }
+                if(colMetaData.isPrimaryKey()){
+                    _class += " primaryKey";
+                }
+                %><th class="<%=_class %>" data-nullable="<%=metaData.isNullable(i)%>"><%=metaData.getColumnLabel(i)%></th>
             <%}%>
         </tr>
         <% while (rs.next()) { %>

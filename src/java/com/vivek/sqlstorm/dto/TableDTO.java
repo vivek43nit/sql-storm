@@ -40,6 +40,7 @@ public class TableDTO {
     private List<String> autoResolveColumns;
     private List<String> columnNamesInDbOrder;
     private Map<String, ColumnDTO> columns;
+    private String primaryKey;
     
     private MappingTableDto jointTableMapping;
     
@@ -52,6 +53,10 @@ public class TableDTO {
         this.remark = remark;
     }
 
+    public String getPrimaryKey() {
+        return primaryKey;
+    }
+    
     public List<String> getColumnNamesInDbOrder() {
         return columnNamesInDbOrder;
     }
@@ -125,5 +130,17 @@ public class TableDTO {
             weight += col.getReferencedBy().size();
         }
         return weight;
+    }
+    
+    public void setIndexingInfo(List<IndexInfo> indexes){
+        for(IndexInfo index : indexes){
+            ColumnDTO col = this.columns.get(index.getColumn());
+            col.setIndexed(true);
+            col.setPrimaryKey(index.isPrimaryKey());
+            col.setUnique(index.isUnique());
+            if(index.isPrimaryKey()){
+                this.primaryKey = col.getName();
+            }
+        }
     }
 }

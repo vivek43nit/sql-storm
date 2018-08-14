@@ -41,12 +41,14 @@ and open the template in the editor.
 table.table{
     margin: 0 auto;
     border-collapse: collapse;
+    color : gray;
 }
 table.table tr:nth-child(2n){
     background-color: #EEE;
 }
 table.table tr td{
     vertical-align: middle;
+    padding-left: 5px;
     padding-right: 5px;
     white-space: nowrap;
     border-left: 1px solid seagreen;
@@ -63,6 +65,18 @@ table.table tr th{
     border-bottom: 1px solid #CCC;
     font-weight: bold;
     border-left: 1px solid seagreen;
+    font-family: monospace;
+    color: #555;
+}
+table.table tr th.indexed{
+    color: lightcoral;
+    font-family: monospace;
+    font-size: 13px;
+}
+table.table tr th.indexed.primaryKey{
+    color: red;
+    font-family: monospace;
+    font-size: 13px;
 }
 table.table tr.alt{
     background-color: #EEE;
@@ -94,26 +108,29 @@ table.table tr.alt{
     margin-right: 10px;
 }
 
-.tile{
+.table-container{
     border:1px solid #CCCCCC;
     margin-bottom: 10px;
 }
-.tile.referedBy>div{
+.table-container.referedBy>div{
     border-left: 8px solid greenyellow;
     border-radius: 0px;
 }
-.tile.referTo>div{
+.table-container.referTo>div{
     border-left: 8px solid yellow;
     border-radius: 0px;
 }
-.tile.self>.tableHeader.read-only{
+.table-container.self>.tableHeader.read-only{
     background-color:burlywood;
 }
+
 .link{
     text-decoration: underline;
-    font-weight: bold;
     cursor: pointer;
+    color: seagreen;
+    padding-left: 5px;
 }
+
 td.referedBy{
     cursor: -webkit-zoom-in;
     cursor: -moz-zoom-in;
@@ -141,4 +158,22 @@ td.referTo{
 .topSegmentFilters .select{
     height: 24px;
     border: 0px;
+}
+
+/*tile css*/
+.tile:before{
+    display: block;
+    width: 100%;
+    background-color: darkseagreen;
+    color: black;
+    text-align: center;
+    font-weight: bold;
+    content: attr(data-title);
+    height: 30px;
+    font-size: 14px;
+    line-height: 30px;
+}
+.tile{
+    border:1px solid #CCCCCC;
+    margin-bottom: 10px;
 }

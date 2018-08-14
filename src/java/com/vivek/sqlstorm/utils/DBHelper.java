@@ -26,23 +26,22 @@ package com.vivek.sqlstorm.utils;
 import com.vivek.sqlstorm.DatabaseManager;
 import com.vivek.sqlstorm.dto.ColumnDTO;
 import com.vivek.sqlstorm.dto.ColumnPath;
+import com.vivek.sqlstorm.dto.IndexInfo;
 import com.vivek.sqlstorm.dto.MappingTableDto;
+import com.vivek.sqlstorm.dto.ReferenceDTO;
 import com.vivek.sqlstorm.dto.TableDTO;
+import com.vivek.sqlstorm.dto.request.ExecuteRequest;
+import com.vivek.sqlstorm.exceptions.ConnectionDetailNotFound;
+import com.vivek.utils.parser.ConfigParsingError;
+import com.vivek.utils.parser.NoParserRegistered;
+import java.io.FileNotFoundException;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.List;
-import com.vivek.sqlstorm.dto.ReferenceDTO;
-import com.vivek.sqlstorm.dto.TableMetaData;
-import com.vivek.sqlstorm.dto.request.ExecuteRequest;
-import com.vivek.sqlstorm.exceptions.ConnectionDetailNotFound;
-import com.vivek.utils.CommonFunctions;
-import com.vivek.utils.parser.ConfigParsingError;
-import com.vivek.utils.parser.NoParserRegistered;
-import java.io.FileNotFoundException;
 import java.util.Iterator;
+import java.util.List;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -69,6 +68,24 @@ public class DBHelper {
         List<ColumnDTO> list = new ArrayList<ColumnDTO>();
         while (rs.next()) {
             list.add(new ColumnDTO(rs.getString("COLUMN_NAME"), "", rs.getInt("DATA_TYPE"), rs.getInt("COLUMN_SIZE"), rs.getInt("NULLABLE")));
+        }
+        return list;
+    }
+    
+    public static List<IndexInfo> getAllIndexedColumns(Connection con, String tableName) throws SQLException {
+        DatabaseMetaData dbMetaData = con.getMetaData();
+        
+        ResultSet rs = dbMetaData.getPrimaryKeys(con.getCatalog(), null, tableName);
+        String primaryKeyColName = "";
+        if(rs.next()){
+            primaryKeyColName = rs.getString("COLUMN_NAME");
+        }
+        
+        List<IndexInfo> list = new ArrayList<IndexInfo>();
+        rs = dbMetaData.getIndexInfo(con.getCatalog(), null, tableName, false, false);
+        while (rs.next()) {
+            if(rs.getShort("ORDINAL_POSITION") > 1) continue;
+            list.add(new IndexInfo(rs.getString("COLUMN_NAME"), rs.getString("COLUMN_NAME").equals(primaryKeyColName), !rs.getBoolean("NON_UNIQUE")));
         }
         return list;
     }
@@ -136,7 +153,7 @@ public class DBHelper {
         return builder.toString();
     }
 
-    public static List<ExecuteRequest> getExecuteRequestsForReferedByReq(String group, ColumnPath self, ColumnPath referencedBy, String value, boolean isAppend)
+    public static List<ExecuteRequest> getExecuteRequestsForReferedByReq(String group, ColumnPath self, ColumnPath referencedBy, String value, boolean isAppend, int rowLimit)
             throws ConnectionDetailNotFound, SQLException, ClassNotFoundException,
             FileNotFoundException, ConfigParsingError, NoParserRegistered {
 
@@ -152,15 +169,20 @@ public class DBHelper {
             currentInfo = selfPath + " -> " + referencedByPath;
         }
 
-        String query = "";
+        String whereClause = "";
 
         //generation of extra where queries if any
         if (referencedBy.getConditions() != null) {
-            query = DBHelper.getWhereQueryFromConditions(referencedBy.getConditions());
+            whereClause = DBHelper.getWhereQueryFromConditions(referencedBy.getConditions());
         }
-
+        
         TableDTO tableMetaData = DatabaseManager.getInstance().getMetaData(group, referencedBy.getDatabase()).getTableMetaData(referencedBy.getTable());
 
+        String orderByStr = "";
+        if(tableMetaData.getPrimaryKey() != null){
+            orderByStr = " order by "+tableMetaData.getPrimaryKey()+" DESC ";
+        }
+        
         boolean isJointTable = false;
         String nextColumnName = null;
 
@@ -180,7 +202,10 @@ public class DBHelper {
 
         List<ExecuteRequest> requests = new ArrayList<ExecuteRequest>();
         if ((isJointTable && tableMetaData.getJointTableMapping().isIncludeSelf()) || !isJointTable) {
-            String finalQuery = String.format("select * from %s where %s='%s'", referencedBy.getTable(), referencedBy.getColumn(), value) + query;
+            
+            String finalQuery = String.format("select * from %s where %s='%s' %s %s limit %d", referencedBy.getTable(), referencedBy.getColumn(),
+                    value, whereClause, orderByStr, rowLimit);
+            
             ExecuteRequest request = new ExecuteRequest(finalQuery, referencedBy.getDatabase(), currentInfo, isAppend);
             if (isSelf) {
                 request.setRelation(ExecuteRequest.SELF);
@@ -192,9 +217,16 @@ public class DBHelper {
         if (isJointTable) {
             List<ColumnPath> refToList = tableMetaData.getColumnMetaData(nextColumnName).getReferTo();
             for (ColumnPath referTo : refToList) {
-                String finalQuery = String.format("select * from %s where %s in (select %s from %s where %s='%s' %s)",
+                TableDTO referToTableMetaData = DatabaseManager.getInstance().getMetaData(group, referTo.getDatabase())
+                        .getTableMetaData(referTo.getTable());
+                if(referToTableMetaData.getPrimaryKey() != null){
+                    orderByStr = " order by "+referToTableMetaData.getPrimaryKey()+" DESC ";
+                }else{
+                    orderByStr = "";
+                }
+                String finalQuery = String.format("select * from %s where %s in (select %s from %s where %s='%s' %s) %s limit %d",
                         referTo.getTable(), referTo.getColumn(), nextColumnName,
-                        referencedBy.getTable(), referencedBy.getColumn(), value, query);
+                        referencedBy.getTable(), referencedBy.getColumn(), value, whereClause, orderByStr, rowLimit);
                 String info = "AUTO-RESOLVE : " + currentInfo + " -> " + nextColumnName + " -> " + referTo.getPathString();
                 ExecuteRequest request = new ExecuteRequest(finalQuery, referTo.getDatabase(), info, isAppend);
                 request.setRelation(ExecuteRequest.REFERENCED_BY);

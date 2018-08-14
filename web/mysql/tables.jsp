@@ -30,7 +30,7 @@
 <select class="select table" size="30" autocomplete="off" id="tables" onchange="selectTable(this)">
     <%
     for(TableDTO table : tables){
-        %><option value="<%=table.getTableName() %>" ><%=table.getTableName() %></option><%
+        %><option value="<%=table.getTableName() %>" data-primary-key="<%=table.getPrimaryKey()==null?"":table.getPrimaryKey() %>" ><%=table.getTableName() %></option><%
     }
 %>
 </select>

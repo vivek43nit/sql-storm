@@ -40,31 +40,21 @@
         req.setData(data);
     }
     String value = data.getString(req.getColumn());
-    
-    ColumnDTO colMetaData = DatabaseManager.getInstance()
+       
+    TableDTO tableMetaData = DatabaseManager.getInstance()
             .getMetaData(sessionDetails.getGroup(), req.getDatabase())
-            .getTableMetaData(req.getTable())
-            .getColumnMetaData(req.getColumn());
+            .getTableMetaData(req.getTable());
+    
+    ColumnDTO colMetaData = tableMetaData.getColumnMetaData(req.getColumn());
     
     if(colMetaData.getReferTo().isEmpty()){
         logger.error("References Not Found");
         out.print("No references found");
         return;
     }
-//    
-//    ColumnPath selfPath = new ColumnPath(req.getDatabase(), req.getTable(), req.getColumn());
-//    
+  
     List<ColumnPath> referToList = colMetaData.getReferTo();;
-//    
-//    can not include self in back referencing because where clause for self will fetch non unique rows
-//    if(req.getIncludeSelf()){
-//        referToList = new ArrayList<ColumnPath>();
-//        referToList.add(selfPath);
-//        referToList.addAll(colMetaData.getReferTo());
-//    }else{
-//        referToList = 
-//    }
-//    
+
     for(ColumnPath referTo : referToList){
         
         //checking for this relation is valid or not if condition exists
@@ -74,7 +64,12 @@
                 continue;
             }
         }
-        String query = String.format("select * from %s where %s='%s'", referTo.getTable(), referTo.getColumn(), value); 
+        String query = String.format("select * from %s where %s='%s'", referTo.getTable(), referTo.getColumn(), value);
+        if(tableMetaData.getPrimaryKey() != null){
+            query += " order by "+tableMetaData.getPrimaryKey()+" DESC ";
+        }
+        query += " limit "+req.getRefRowLimit();
+
         %><jsp:include page="execute.jsp">
             <jsp:param name="database" value="<%=referTo.getDatabase()%>"></jsp:param>
             <jsp:param name="append" value="${req.append}"></jsp:param>

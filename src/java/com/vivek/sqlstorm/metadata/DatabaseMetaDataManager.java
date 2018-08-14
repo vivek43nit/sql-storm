@@ -31,6 +31,7 @@ import com.vivek.sqlstorm.constants.Constants;
 import com.vivek.sqlstorm.dto.ColumnDTO;
 import com.vivek.sqlstorm.dto.ColumnPath;
 import com.vivek.sqlstorm.dto.DatabaseDTO;
+import com.vivek.sqlstorm.dto.IndexInfo;
 import com.vivek.sqlstorm.dto.MappingTableDto;
 import com.vivek.sqlstorm.dto.ReferenceDTO;
 import com.vivek.sqlstorm.dto.TableDTO;
@@ -111,7 +112,10 @@ public class DatabaseMetaDataManager {
     private void lazyLoadFromDb(DatabaseDTO dbmeta) throws SQLException, ConnectionDetailNotFound, ClassNotFoundException{
         Connection con = connectionManager.getConnection(dbmeta.getGroup(), dbmeta.getName());
         List<TableDTO> dbtables = DBHelper.getTables(con);
+        
+        //updating all the table and columns information from db to meta data cache
         for(TableDTO dbtable : dbtables){
+            
             TableDTO t = dbmeta.getTableMetaData(dbtable.getTableName());
             if(t == null){
                 dbmeta.addTableMetaData(dbtable);
@@ -120,6 +124,7 @@ public class DatabaseMetaDataManager {
                 t.setRemark(dbtable.getRemark());
             }
             
+            //updating columns in the table meta data
             List<ColumnDTO> db_columns = DBHelper.getColumns(con, dbtable.getTableName());
             List<String> colNames = new ArrayList<String>();
             
@@ -136,12 +141,18 @@ public class DatabaseMetaDataManager {
                     c.setSize(dbcolumn.getSize());
                 }
             }
+            //setting col names to maintain the order of columns if required
             t.setColumnNamesInDbOrder(colNames);
+            
+            //adding indexing information to the columns
+            List<IndexInfo> indexList = DBHelper.getAllIndexedColumns(con, dbtable.getTableName());
+            logger.debug("Indexes for Table "+dbtable.getTableName()+" : "+indexList);
+            t.setIndexingInfo(indexList);
         }
         
         for(TableDTO dbtable : dbtables){
             List<ReferenceDTO> relations = DBHelper.getAllForeignKeys(con, dbtable.getTableName());
-            logger.debug("Relations : "+relations);
+            logger.debug("Relations for Table "+dbtable.getTableName()+" : "+relations);
             
             for(ReferenceDTO relation : relations){
                 ColumnPath referTo = new ColumnPath(relation.getReferenceDatabaseName(), relation.getReferenceTableName(), relation.getReferenceColumnName());

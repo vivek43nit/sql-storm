@@ -66,7 +66,7 @@
     }
     
     for(ColumnPath referencedBy : referencedByList){
-        for(ExecuteRequest r : DBHelper.getExecuteRequestsForReferedByReq(sessionDetails.getGroup(), selfPath, referencedBy, value, req.isAppend())){
+        for(ExecuteRequest r : DBHelper.getExecuteRequestsForReferedByReq(sessionDetails.getGroup(), selfPath, referencedBy, value, req.isAppend(), req.getRefRowLimit())){
             %><jsp:include page="execute.jsp">
                 <jsp:param name="database" value="<%=r.getDatabase() %>"></jsp:param>
                 <jsp:param name="queryType" value="S"></jsp:param> 

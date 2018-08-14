@@ -18,12 +18,18 @@
         return;
     }
     
+    
     String database = request.getParameter("database");   //database name
     String tableName = request.getParameter("table");   //table Name
     
     if(database == null || tableName == null){
         response.sendError(response.SC_BAD_REQUEST, "Invalid request");
         return;
+    }
+    
+    String ref_row_limit = request.getParameter("refRowLimit");
+    if(ref_row_limit == null || ref_row_limit.isEmpty()){
+        ref_row_limit = ""+Constants.DEFAULT_REFERENCES_ROWS_LIMIT;
     }
     
     String rowStr = request.getParameter("row"); //row data
@@ -46,6 +52,7 @@
             <jsp:param name="row" value="<%=rowStr %>"></jsp:param>
             <jsp:param name="append" value="<%=isAppend %>"></jsp:param>
             <jsp:param name="includeSelf" value="false"></jsp:param>
+            <jsp:param name="refRowLimit" value="<%=ref_row_limit%>"></jsp:param>
         </jsp:include><%
         isAppend = true;
     }
@@ -62,6 +69,7 @@
             <jsp:param name="row" value="<%=rowStr %>"></jsp:param>
             <jsp:param name="append" value="<%=isAppend %>"></jsp:param>
             <jsp:param name="includeSelf" value="<%=includeSelf %>"></jsp:param>
+            <jsp:param name="refRowLimit" value="<%=ref_row_limit%>"></jsp:param>
         </jsp:include><%
         includeSelf = false;
     }

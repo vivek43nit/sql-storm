@@ -23,17 +23,11 @@
  */
 package com.vivek.sqlstorm;
 
-import com.vivek.sqlstorm.config.connection.ConnectionConfig;
-import com.vivek.sqlstorm.config.connection.parsers.DatabaseConfigXmlParser;
-import com.vivek.sqlstorm.config.customrelation.CustomRelationConfig;
-import com.vivek.sqlstorm.config.customrelation.DatabaseConfig;
-import com.vivek.sqlstorm.config.customrelation.parsers.CustomRelationConfigJsonParser;
 import com.vivek.sqlstorm.connection.DatabaseConnectionManager;
 import com.vivek.sqlstorm.dto.DatabaseDTO;
 import com.vivek.sqlstorm.dto.TableDTO;
 import com.vivek.sqlstorm.exceptions.ConnectionDetailNotFound;
 import com.vivek.sqlstorm.metadata.DatabaseMetaDataManager;
-import com.vivek.utils.parser.ConfigParserFactory;
 import com.vivek.utils.parser.ConfigParsingError;
 import com.vivek.utils.parser.NoParserRegistered;
 import java.io.FileNotFoundException;

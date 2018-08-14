@@ -37,6 +37,11 @@ public class ColumnDTO {
     private int dataType;
     private int size;
     private int nullable;
+    
+    //indexing info
+    private boolean indexed;
+    private boolean primaryKey;
+    private boolean unique;
 
     private List<ColumnPath> referTo;
     private List<ColumnPath> referencedBy;
@@ -58,6 +63,31 @@ public class ColumnDTO {
         this.referencedBy = new ArrayList<ColumnPath>();
     }
 
+    public boolean isIndexed() {
+        return indexed;
+    }
+
+    public void setIndexed(boolean indexed) {
+        this.indexed = indexed;
+    }
+
+    public boolean isPrimaryKey() {
+        return primaryKey;
+    }
+
+    public void setPrimaryKey(boolean primaryKey) {
+        this.primaryKey = primaryKey;
+    }
+
+    public boolean isUnique() {
+        return unique;
+    }
+
+    public void setUnique(boolean unique) {
+        this.unique = unique;
+    }
+
+    
     public List<ColumnPath> getReferTo() {
         return referTo;
     }

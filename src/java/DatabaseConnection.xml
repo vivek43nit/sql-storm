@@ -2,7 +2,7 @@
 If you are deploying this webapp onto some prod server or stage server then 
 better to keep this file at  /etc/sql-storm/DatabaseConnection.xml
 -->
-<CONNECTIONS>
+<CONNECTIONS CONNECTION_EXPIRY_TIME="3600000" MAX_RETRY_COUNT="10">
 <!--    Attribute Info:
     //labeling and grouping same dbs for different environment
         ID -> just for differentiate between different connections; not in use as of now; but provide unique id for unique connections

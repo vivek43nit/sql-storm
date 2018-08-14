@@ -3,6 +3,7 @@
     Created on : Apr 20, 2015, 5:08:34 PM
     Author     : Vivek
 --%>
+<%@page import="com.vivek.sqlstorm.constants.Constants"%>
 <%@page import="java.sql.PreparedStatement"%>
 <%@page import="java.util.ArrayList"%>
 <%@page contentType="text/html" pageEncoding="UTF-8" errorPage="error.jsp"%>
@@ -209,13 +210,16 @@
                     <span>Range : <input class="input" type="text" value="0" id="limitStart" placeholder="Start"/></span> -> <span><input class="input" type="text" value="10" id="limitEnd" placeholder="End"/></span>
                 </div>
                 <div class="topSegmentFilters">
-                    <span>Order By : <input class="input" type="text" value="" id="orderBy"/></span>
+                    <span>Order By : <input class="input" style="width: 100px;" type="text" value="" id="orderBy"/></span>
                     <span>
                         <select class="select" id="order">
                             <option value="DESC">DESC</option>
                             <option value="ASC">ASC</option>
                         </select>
                     </span>
+                </div>
+                <div class="topSegmentFilters">
+                    <span>References Rows Limit: <input class="input" type="text" value="<%=Constants.DEFAULT_REFERENCES_ROWS_LIMIT%>" id="refRowLimit"/></span>
                 </div>
                 <span style="float: right"><a style="color: seagreen;line-height: 30px;padding: 5px;" href="admin/relation/viewRelation.jsp" target="_blank">View Relations</a></span>
             </div>

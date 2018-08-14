@@ -23,9 +23,9 @@
  */
 package com.vivek.sqlstorm.config.connection.parsers;
 
-import com.vivek.utils.parser.ConfigParserInterface;
-import com.vivek.sqlstorm.config.connection.ConnectionDTO;
 import com.vivek.sqlstorm.config.connection.ConnectionConfig;
+import com.vivek.sqlstorm.config.connection.ConnectionDTO;
+import com.vivek.utils.parser.ConfigParserInterface;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -78,7 +78,10 @@ public class DatabaseConfigJsonParser implements ConfigParserInterface<Connectio
                 
                 list.add(dto);
             }
-            return new ConnectionConfig(list);
+            ConnectionConfig conf = new ConnectionConfig(list);
+            conf.setConnectionExpiryTime(root.optLong("connection_expiry_time", conf.getConnectionExpiryTime()));
+            conf.setMaxRetryCount(root.optInt("max_retry_count", conf.getMaxRetryCount()));
+            return conf;
         } catch (IOException ex) {
             logger.error("Unable to parse json file",ex);
             return null;

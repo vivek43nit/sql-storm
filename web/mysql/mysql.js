@@ -62,7 +62,10 @@ var MySQl = {
         return json;
     },
     "traceRow" : function(db, t, ele){
-        var query = 'database='+ db + '&table=' + t +"&row="+RH.enc(JSON.stringify(MySQl.getRowDataAsJson(ele.parentNode)));
+        var query = 'database='+ db 
+                + '&table=' + t 
+                + "&refRowLimit="+RH.g('refRowLimit').value
+                +"&row="+RH.enc(JSON.stringify(MySQl.getRowDataAsJson(ele.parentNode)));
         RH.server.get('traceRow.jsp', query, 'rightSegment', RH.load);
     },
     "getCurrentTableEle" : function(ele){
@@ -84,6 +87,7 @@ var MySQl = {
         query+= '&column='+ele.getAttribute("name");
         query+= "&row="+RH.enc(JSON.stringify(MySQl.getRowDataAsJson(ele.parentNode)));
         query+= "&append=false&includeSelf=true";
+        query+= "&refRowLimit="+RH.g('refRowLimit').value;
         if(ele.classList.contains("referedBy")){
             RH.server.get('getReferences.jsp', query, 'rightSegment', RH.load);
         }else{
@@ -215,12 +219,16 @@ function selectTable(ele, isResetFilter) {
     var group = RH.g('group').value;
     var database = RH.g('database').value;
     
-    var orderBy = RH.g('orderBy').value;
-    var order = RH.g('order').value;
-    
     if (isResetFilter == null)
         isResetFilter = true;
 
+    if(isResetFilter){
+        RH.g('orderBy').value = ele.selectedOptions[0].getAttribute("data-primary-key")
+    }
+        
+    var orderBy = RH.g('orderBy').value;
+    var order = RH.g('order').value;
+    
     var filters = document.querySelectorAll('input[name=filter]:checked');
     var whereClause = '';
 
@@ -255,7 +263,9 @@ function callback(target, response) {
     var filterDiv = RH.g('filters');
     filterDiv.innerHTML = '';
     for (var i = 1; i < filters.length; i++) {
-        filterDiv.appendChild(MySQl.getFilterDiv(filters[i].innerHTML));
+        if(filters[i].classList.contains("filterable")){
+            filterDiv.appendChild(MySQl.getFilterDiv(filters[i].innerHTML));
+        }
     }
 }
 function resetPage(){

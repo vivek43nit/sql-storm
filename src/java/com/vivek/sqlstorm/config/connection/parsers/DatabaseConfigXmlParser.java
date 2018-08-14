@@ -5,11 +5,10 @@
  */
 package com.vivek.sqlstorm.config.connection.parsers;
 
-import com.vivek.utils.parser.ConfigParserInterface;
-import com.vivek.sqlstorm.config.connection.ConnectionDTO;
 import com.vivek.sqlstorm.config.connection.ConnectionConfig;
+import com.vivek.sqlstorm.config.connection.ConnectionDTO;
+import com.vivek.utils.parser.ConfigParserInterface;
 import java.io.File;
-import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -43,10 +42,9 @@ public class DatabaseConfigXmlParser implements ConfigParserInterface<Connection
             SAXBuilder builder = new SAXBuilder();
             Document doc = builder.build(file);
             Element root = doc.getRootElement();
+            
             List connectionList = root.getChildren("CONNECTION");
-            
             List<ConnectionDTO> list = new ArrayList<ConnectionDTO>();
-            
             for(Iterator connectionIterator = connectionList.iterator(); connectionIterator.hasNext();)
             {
                 Element connection = (Element)connectionIterator.next();
@@ -71,7 +69,17 @@ public class DatabaseConfigXmlParser implements ConfigParserInterface<Connection
                 }
                 list.add(connConfig);
             }
-            return new ConnectionConfig(list);
+            ConnectionConfig config = new ConnectionConfig(list);
+            String connectionExpiryTime = root.getAttributeValue("CONNECTION_EXPIRY_TIME");
+            String maxRetryCount = root.getAttributeValue("MAX_RETRY_COUNT");
+            
+            if(connectionExpiryTime != null && !connectionExpiryTime.isEmpty()){
+                config.setConnectionExpiryTime(Long.parseUnsignedLong(connectionExpiryTime));
+            }
+            if(maxRetryCount != null && !maxRetryCount.isEmpty()){
+                config.setMaxRetryCount(Integer.parseUnsignedInt(maxRetryCount));
+            }
+            return config;
         } catch (JDOMException ex) {
             logger.error("Error in Parsing XML file", ex);
             return null;
