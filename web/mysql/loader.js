@@ -114,6 +114,7 @@ var RH = {
         var scr = document.getElementById(target).getElementsByTagName('script');
         for (var i = 0; i < scr.length; i++)
             eval(scr[i].innerHTML);
+        RH.tooltip.register();
     },
     "getElementsByClassName": function (className, root) {
         var r = root;
@@ -386,8 +387,51 @@ var RH = {
             ele.appendChild(ei);
             ele.appendChild(r);
         }
+    },
+    "tooltip" : {
+        "show" : function(){
+            var x = RH.g(TOOLTIP_ID);
+            x.style.visibility = 'visible';
+            x.innerHTML = this.getAttribute("data-title");
+            
+            var parentRect = this.getBoundingClientRect();
+            var selfRect = x.getBoundingClientRect();
+            var documentRect = document.getElementsByTagName('body')[0].getBoundingClientRect();
+            
+            var left = parentRect.left;
+            if(left + selfRect.width > screen.width){
+                left -= (left + selfRect.width - screen.width);
+            }
+            var top = parentRect.bottom;
+            if(top + selfRect.height > documentRect.bottom){
+                top = parentRect.bottom - parentRect.height - selfRect.height;
+            }
+            x.style['left'] = left+'px';
+            x.style['top'] = top+'px';
+        },
+        "hide" : function(){
+            RH.g(TOOLTIP_ID).style.visibility = 'collapse';
+        },
+        "register":function(){
+            var eles = RH.gC("tooltip");
+            for(var i=0; i< eles.length; i++){
+                console.log(eles[i]);
+                eles[i].addEventListener('mouseover', RH.tooltip.show.bind(eles[i]));
+                eles[i].addEventListener('mouseout', RH.tooltip.hide);
+            }
+        }
     }
 };
+
+//tooltip register to all title elements
+var TOOLTIP_ID = "tooltip-div";
+function initToolTip(){
+    var tooltipDiv = document.createElement('span');
+    tooltipDiv.setAttribute('id', TOOLTIP_ID);
+    tooltipDiv.setAttribute('class', 'tooltipdiv');
+    document.getElementsByTagName('body')[0].appendChild(tooltipDiv);
+}
+
 
 //history manipulation
 
@@ -398,6 +442,7 @@ window.onpopstate = function (event) {
 
 function init () {
     loadForState(history.state);
+    initToolTip();
 }
 
 //handling with browser reload case

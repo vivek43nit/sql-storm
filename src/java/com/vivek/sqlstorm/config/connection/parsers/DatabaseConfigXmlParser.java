@@ -59,6 +59,7 @@ public class DatabaseConfigXmlParser implements ConfigParserInterface<Connection
                 
                 String UPDATABLE = connection.getAttributeValue("UPDATABLE");
                 String DELETABLE = connection.getAttributeValue("DELETABLE");
+                String searchableRowLimit = connection.getAttributeValue("NON_INDEXED_SEARCHABLE_ROW_LIMIT");
                 
                 ConnectionDTO connConfig = new ConnectionDTO(DRIVER_CLASS_NAME, DATABASE_URL, USER_NAME, PASSWORD, Long.parseLong(ID), group, DB_NAME);
                 if(UPDATABLE != null && !UPDATABLE.isEmpty() && !UPDATABLE.equals("null")){
@@ -67,6 +68,11 @@ public class DatabaseConfigXmlParser implements ConfigParserInterface<Connection
                 if(DELETABLE != null && !DELETABLE.isEmpty() && !DELETABLE.equals("null")){
                     connConfig.setDeletable(true);
                 }
+                
+                if(searchableRowLimit != null && !searchableRowLimit.isEmpty()){
+                    connConfig.setSearchableRowLimit(Integer.parseInt(searchableRowLimit));
+                }
+                
                 list.add(connConfig);
             }
             ConnectionConfig config = new ConnectionConfig(list);
@@ -74,10 +80,10 @@ public class DatabaseConfigXmlParser implements ConfigParserInterface<Connection
             String maxRetryCount = root.getAttributeValue("MAX_RETRY_COUNT");
             
             if(connectionExpiryTime != null && !connectionExpiryTime.isEmpty()){
-                config.setConnectionExpiryTime(Long.parseUnsignedLong(connectionExpiryTime));
+                config.setConnectionExpiryTime(Long.parseLong(connectionExpiryTime));
             }
             if(maxRetryCount != null && !maxRetryCount.isEmpty()){
-                config.setMaxRetryCount(Integer.parseUnsignedInt(maxRetryCount));
+                config.setMaxRetryCount(Integer.parseInt(maxRetryCount));
             }
             return config;
         } catch (JDOMException ex) {

@@ -177,3 +177,30 @@ td.referTo{
     border:1px solid #CCCCCC;
     margin-bottom: 10px;
 }
+
+/* tool tip related css */
+/*.title {
+    position: relative;
+}*/
+
+/* Tooltip text */
+.tooltipdiv{
+    visibility: collapse;
+    background-color: black;
+    color: lightcoral;
+    text-align: left;
+    padding: 5px 8px;
+    border-radius: 6px;
+    position: fixed;
+    z-index: 99;
+    font-size: 13px;
+    font-family: monospace;
+}
+/*.title.bottom:after{
+    top: 100%;
+    left:0px;
+}
+
+.title:hover:after {
+    display: inline-block;
+}*/

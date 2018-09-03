@@ -41,11 +41,9 @@
     }
     String value = data.getString(req.getColumn());
        
-    TableDTO tableMetaData = DatabaseManager.getInstance()
+    ColumnDTO colMetaData = DatabaseManager.getInstance()
             .getMetaData(sessionDetails.getGroup(), req.getDatabase())
-            .getTableMetaData(req.getTable());
-    
-    ColumnDTO colMetaData = tableMetaData.getColumnMetaData(req.getColumn());
+            .getTableMetaData(req.getTable()).getColumnMetaData(req.getColumn());
     
     if(colMetaData.getReferTo().isEmpty()){
         logger.error("References Not Found");
@@ -64,6 +62,11 @@
                 continue;
             }
         }
+        
+        TableDTO tableMetaData = DatabaseManager.getInstance()
+            .getMetaData(sessionDetails.getGroup(), referTo.getDatabase())
+            .getTableMetaData(referTo.getTable());
+                
         String query = String.format("select * from %s where %s='%s'", referTo.getTable(), referTo.getColumn(), value);
         if(tableMetaData.getPrimaryKey() != null){
             query += " order by "+tableMetaData.getPrimaryKey()+" DESC ";

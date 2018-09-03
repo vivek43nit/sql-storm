@@ -23,6 +23,7 @@
  */
 package com.vivek.sqlstorm.metadata;
 
+import com.vivek.sqlstorm.config.connection.ConnectionDTO;
 import com.vivek.sqlstorm.config.customrelation.CustomRelationConfig;
 import com.vivek.sqlstorm.config.customrelation.DatabaseConfig;
 import com.vivek.sqlstorm.config.customrelation.parsers.CustomRelationConfigJsonParser;
@@ -111,6 +112,8 @@ public class DatabaseMetaDataManager {
     
     private void lazyLoadFromDb(DatabaseDTO dbmeta) throws SQLException, ConnectionDetailNotFound, ClassNotFoundException{
         Connection con = connectionManager.getConnection(dbmeta.getGroup(), dbmeta.getName());
+        ConnectionDTO connectionConfig = connectionManager.getConnectionConfig(dbmeta.getGroup(), dbmeta.getName());
+        
         List<TableDTO> dbtables = DBHelper.getTables(con);
         
         //updating all the table and columns information from db to meta data cache

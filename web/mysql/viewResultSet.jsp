@@ -3,6 +3,7 @@
     Created on : Apr 20, 2015, 7:29:46 PM
     Author     : Vivek
 --%>
+<%@page import="com.vivek.sqlstorm.dto.ColumnPath"%>
 <%@page import="java.util.Collection"%>
 <%@page import="com.vivek.sqlstorm.dto.ColumnDTO"%>
 <%@page import="java.util.List"%>
@@ -80,7 +81,27 @@
                 if(colMetaData.isPrimaryKey()){
                     _class += " primaryKey";
                 }
-                %><th class="<%=_class %>" data-nullable="<%=metaData.isNullable(i)%>"><%=metaData.getColumnLabel(i)%></th>
+                if(colMetaData.getReferTo().size() > 0 || colMetaData.getReferencedBy().size() > 0){
+                    _class += " tooltip bottom";
+                }
+                StringBuilder title = new StringBuilder();
+                if(colMetaData.getReferTo().size() > 0 || colMetaData.getReferencedBy().size() > 0){
+                    for(ColumnPath path : colMetaData.getReferTo()){
+                        title.append("-> "+path.getDatabase()+"."+path.getTable()+"."+path.getColumn());
+                        if(path.getConditions() != null){
+                            title.append("[").append(path.getConditions().toString()).append("]");
+                        }
+                        title.append("</br>");
+                    }
+                    for(ColumnPath path : colMetaData.getReferencedBy()){
+                        title.append("<- "+path.getDatabase()+"."+path.getTable()+"."+path.getColumn());
+                        if(path.getConditions() != null){
+                            title.append("[").append(path.getConditions().toString()).append("]");
+                        }
+                        title.append("</br>");
+                    }
+                }
+                %><th class="<%=_class %>" data-nullable="<%=metaData.isNullable(i)%>" data-title='<%=title %>'><%=metaData.getColumnLabel(i)%></th>
             <%}%>
         </tr>
         <% while (rs.next()) { %>

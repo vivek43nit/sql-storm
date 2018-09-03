@@ -23,13 +23,13 @@
  */
 package com.vivek.sqlstorm.connection;
 
-import com.vivek.sqlstorm.config.connection.ConnectionDTO;
-import com.vivek.utils.parser.ConfigParserFactory;
 import com.vivek.sqlstorm.config.connection.ConnectionConfig;
+import com.vivek.sqlstorm.config.connection.ConnectionDTO;
 import com.vivek.sqlstorm.config.connection.parsers.DatabaseConfigJsonParser;
 import com.vivek.sqlstorm.config.connection.parsers.DatabaseConfigXmlParser;
 import com.vivek.sqlstorm.constants.Constants;
 import com.vivek.sqlstorm.exceptions.ConnectionDetailNotFound;
+import com.vivek.utils.parser.ConfigParserFactory;
 import com.vivek.utils.parser.ConfigParsingError;
 import com.vivek.utils.parser.NoParserRegistered;
 import java.io.FileNotFoundException;
@@ -109,6 +109,9 @@ public class DatabaseConnectionManager {
         }
     }
     
+    public ConnectionDTO getConnectionConfig(String group, String database) throws ConnectionDetailNotFound{
+        return getConnectionInfo(group, database).getConfig();
+    }
     
     /////////
     private final Map<String, Map<String, ConnectionInfo>> connectionMap;

@@ -16,7 +16,8 @@ public class ConnectionDTO
     private String dbName;
     private boolean updatable = false;
     private boolean deletable = false;
-
+    private int searchableRowLimit = 30000;
+    
     public ConnectionDTO()
     {
         id = -1L;
@@ -30,6 +31,14 @@ public class ConnectionDTO
         this.id = id;
         this.group = group;
         this.dbName = dbName;
+    }
+
+    public int getSearchableRowLimit() {
+        return searchableRowLimit;
+    }
+
+    public void setSearchableRowLimit(int searchableRowLimit) {
+        this.searchableRowLimit = searchableRowLimit;
     }
     
     

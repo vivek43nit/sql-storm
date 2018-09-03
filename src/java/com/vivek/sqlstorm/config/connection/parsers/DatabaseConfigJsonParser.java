@@ -75,9 +75,10 @@ public class DatabaseConfigJsonParser implements ConfigParserInterface<Connectio
                 dto.setDbName(connection.getString("DB_NAME"));
                 dto.setUpdatable(connection.optBoolean("UPDATABLE", false));
                 dto.setDeletable(connection.optBoolean("DELETABLE", false));
-                
+                dto.setSearchableRowLimit(connection.optInt("NON_INDEXED_SEARCHABLE_ROW_LIMIT", dto.getSearchableRowLimit()));
                 list.add(dto);
             }
+            
             ConnectionConfig conf = new ConnectionConfig(list);
             conf.setConnectionExpiryTime(root.optLong("connection_expiry_time", conf.getConnectionExpiryTime()));
             conf.setMaxRetryCount(root.optInt("max_retry_count", conf.getMaxRetryCount()));
