@@ -4,11 +4,13 @@ A mysql client over browser, where you can navigate from one table to another us
 #### Components Required to Start :
 * **apache-tomcat**
     See the tomcat [installation reference](https://tomcat.apache.org/tomcat-9.0-doc/setup.html) for this.
-<br/>
-####  Generating war file from source code :
-    $ git clone https://github.com/vivek43nit/sql-storm.git
-    $ cd sql-storm
-    $ mvn clean install
+
+#### Generating war file from source code :
+```sh
+$ git clone https://github.com/vivek43nit/sql-storm.git
+$ cd sql-storm
+$ mvn clean install
+```
 After successful completion of maven install task, **war** file will be generated inside **target** folder.
 
 #### Configuration Required before application deployment :
