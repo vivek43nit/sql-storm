@@ -43,6 +43,14 @@ public class ColumnPath {
         this.column = column;
     }
 
+    public ColumnPath(ColumnPath from) {
+        this.database = from.database;
+        this.table = from.table;
+        this.column = from.column;
+        this.conditions = from.conditions;
+        this.source = from.source;
+    }
+
     public ReferenceDTO.Source getSource() {
         return source;
     }

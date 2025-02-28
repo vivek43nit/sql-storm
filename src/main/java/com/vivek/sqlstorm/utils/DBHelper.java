@@ -34,11 +34,12 @@ import com.vivek.sqlstorm.dto.request.ExecuteRequest;
 import com.vivek.sqlstorm.exceptions.ConnectionDetailNotFound;
 import com.vivek.utils.parser.ConfigParsingError;
 import com.vivek.utils.parser.NoParserRegistered;
+
+import java.io.File;
 import java.io.FileNotFoundException;
-import java.sql.Connection;
-import java.sql.DatabaseMetaData;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -71,6 +72,34 @@ public class DBHelper {
         }
         return list;
     }
+
+    private static void createCsvFromResultSet(ResultSet rs, FileOutputStream fout) throws SQLException, IOException {
+        boolean isFirst = true;
+        int columnCount= -1;
+        while (rs.next()){
+            if(isFirst){
+                isFirst = false;
+                ResultSetMetaData resultSetMetaData =  rs.getMetaData();
+                columnCount = resultSetMetaData.getColumnCount();
+                for(int i=1; i <=resultSetMetaData.getColumnCount(); i++){
+                    if(i!=1){
+                        fout.write(",".getBytes());
+                    }
+                    fout.write(String.format("%s(%d)", resultSetMetaData.getColumnName(i), resultSetMetaData.getColumnType(i)).getBytes());
+                }
+                fout.write("\n".getBytes());
+            }
+            for(int i=1; i <= columnCount; i++){
+                if(i!=1){
+                    fout.write(",".getBytes());
+                }
+                fout.write(String.format("\"%s\"", rs.getString(i)).getBytes());
+            }
+            fout.write("\n".getBytes());
+        }
+    }
+
+
     
     public static List<IndexInfo> getAllIndexedColumns(Connection con, String tableName) throws SQLException {
         DatabaseMetaData dbMetaData = con.getMetaData();

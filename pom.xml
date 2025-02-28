@@ -12,10 +12,18 @@
     <properties>
         <endorsed.dir>${project.build.directory}/endorsed</endorsed.dir>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <tomcat.version>8.5.23</tomcat.version>
         <servlet.api.version>4.0.1</servlet.api.version>
+        <lombok.version>1.18.10</lombok.version>
     </properties>
     
     <dependencies>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>${lombok.version}</version>
+            <scope>provided</scope>
+        </dependency>
         <dependency>
             <groupId>javax.servlet</groupId>
             <artifactId>javax.servlet-api</artifactId>
@@ -37,11 +45,17 @@
             <artifactId>jdom</artifactId>
             <version>2.0.2</version>
         </dependency>
+
         <!--        mysql driver-->
         <dependency>
             <groupId>mysql</groupId>
             <artifactId>mysql-connector-java</artifactId>
             <version>8.0.22</version>
+        </dependency>
+        <dependency>
+            <groupId>org.mariadb.jdbc</groupId>
+            <artifactId>mariadb-java-client</artifactId>
+            <version>2.1.2</version>
         </dependency>
     </dependencies>
     <build>
@@ -74,10 +88,11 @@
                 <artifactId>tomcat7-maven-plugin</artifactId>
                 <version>2.2</version>
                 <configuration>
-                    <port>9043</port>
+                    <port>9044</port>
                     <path>/sql-storm/</path>
                 </configuration>
             </plugin>
         </plugins>
     </build>
+
 </project>

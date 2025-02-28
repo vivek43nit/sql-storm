@@ -14,7 +14,12 @@ import org.json.JSONObject;
 public class ReferenceDTO {
     public static enum Source{
         DB,
-        CUSTOM
+        CUSTOM,
+        NEW;
+
+        public String getValue(){
+            return this.name();
+        }
     }
     private String databaseName;
     private String tableName;

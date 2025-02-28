@@ -24,7 +24,7 @@ public class ResorceFinder {
         File f = null;
         for(String path : possiblePathsInPriority){
             f = new File(path.replace("${app}", applicationName)+fileName);
-            if (f.exists()) {
+            if (f.canRead() && f.exists()) {
                 return f;
             }
         }

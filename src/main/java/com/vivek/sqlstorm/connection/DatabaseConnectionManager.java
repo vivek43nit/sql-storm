@@ -143,6 +143,7 @@ public class DatabaseConnectionManager {
                 && System.currentTimeMillis()-connection.getConnectTime()<configs.getConnectionExpiryTime() 
                 && !connection.getConnection().isClosed());
     }
+
     private Connection createConnection(ConnectionDTO config) throws ClassNotFoundException, SQLException{
         Class.forName(config.getDriverClassName());
         
