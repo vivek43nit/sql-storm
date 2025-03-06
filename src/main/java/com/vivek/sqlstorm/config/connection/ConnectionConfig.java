@@ -23,45 +23,22 @@
  */
 package com.vivek.sqlstorm.config.connection;
 
+import lombok.Data;
+
 import java.util.List;
 
 /**
  *
  * @author Vivek Kumar <vivek43nit@gmail.com>
  */
+
+@Data
 public class ConnectionConfig {
     private long connectionExpiryTime = 0x36ee80L;
     private int maxRetryCount = 10;
     private List<ConnectionDTO> connections;
 
-    public int getMaxRetryCount() {
-        return maxRetryCount;
-    }
-
-    public void setMaxRetryCount(int maxRetryCount) {
-        this.maxRetryCount = maxRetryCount;
-    }
-
-    
     public ConnectionConfig(List<ConnectionDTO> connections) {
         this.connections = connections;
     }
-
-    public List<ConnectionDTO> getConnections() {
-        return connections;
-    }
-
-    public void setConnections(List<ConnectionDTO> connections) {
-        this.connections = connections;
-    }
-
-    public long getConnectionExpiryTime() {
-        return connectionExpiryTime;
-    }
-
-    public void setConnectionExpiryTime(long connectionExpiryTime) {
-        this.connectionExpiryTime = connectionExpiryTime;
-    }
-
-    
 }

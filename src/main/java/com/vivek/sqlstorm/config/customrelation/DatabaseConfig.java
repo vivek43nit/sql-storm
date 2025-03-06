@@ -27,42 +27,16 @@ import java.util.List;
 import java.util.Map;
 import com.vivek.sqlstorm.dto.ReferenceDTO;
 import com.vivek.sqlstorm.dto.MappingTableDto;
+import lombok.Data;
 
 /**
  *
  * @author Vivek Kumar <vivek43nit@gmail.com>
  */
+
+@Data
 public class DatabaseConfig {
     private List<ReferenceDTO> relations;
     private Map<String, MappingTableDto> jointTables;
     private Map<String, List<String>> autoResolve;
-    
-    public List<ReferenceDTO> getRelations() {
-        return relations;
-    }
-
-    public void setRelations(List<ReferenceDTO> relations) {
-        this.relations = relations;
-    }
-
-    public Map<String, MappingTableDto> getJointTables() {
-        return jointTables;
-    }
-
-    public void setJointTables(Map<String, MappingTableDto> jointTables) {
-        this.jointTables = jointTables;
-    }
-
-    public Map<String, List<String>> getAutoResolve() {
-        return autoResolve;
-    }
-
-    public void setAutoResolve(Map<String, List<String>> autoResolve) {
-        this.autoResolve = autoResolve;
-    }
-
-    @Override
-    public String toString() {
-        return "DatabaseConfig{" + "relations=" + relations + ", jointTables=" + jointTables + ", autoResolve=" + autoResolve + '}';
-    }
 }

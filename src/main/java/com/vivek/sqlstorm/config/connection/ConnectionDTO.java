@@ -5,6 +5,9 @@
  */
 package com.vivek.sqlstorm.config.connection;
 
+import lombok.Data;
+
+@Data
 public class ConnectionDTO
 {
     private String driverClassName;
@@ -31,96 +34,6 @@ public class ConnectionDTO
         this.id = id;
         this.group = group;
         this.dbName = dbName;
-    }
-
-    public int getSearchableRowLimit() {
-        return searchableRowLimit;
-    }
-
-    public void setSearchableRowLimit(int searchableRowLimit) {
-        this.searchableRowLimit = searchableRowLimit;
-    }
-    
-    
-
-    public void setDefaultDatabase(boolean isDefault)
-    {
-        isDefault = isDefault;
-    }
-
-    public void setDatabaseURL(String databaseURL)
-    {
-        this.databaseURL = databaseURL;
-    }
-
-    public String getDatabaseURL()
-    {
-        return databaseURL;
-    }
-
-    public void setDriverClassName(String driverClassName) {
-        this.driverClassName = driverClassName;
-    }
-
-    public String getDriverClassName()
-    {
-        return driverClassName;
-    }
-
-    public String getGroup() {
-        return group;
-    }
-
-    public void setGroup(String group) {
-        this.group = group;
-    }
-
-    public String getDbName() {
-        return dbName;
-    }
-
-    public void setDbName(String dbName) {
-        this.dbName = dbName;
-    }
-
-    public String getUser() {
-        return user;
-    }
-
-    public void setUser(String user) {
-        this.user = user;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
-    }
-
-    public long getId() {
-        return id;
-    }
-
-    public void setId(long id) {
-        this.id = id;
-    }
-
-    public boolean isUpdatable() {
-        return updatable;
-    }
-
-    public void setUpdatable(boolean updatable) {
-        this.updatable = updatable;
-    }
-
-    public boolean isDeletable() {
-        return deletable;
-    }
-
-    public void setDeletable(boolean deletable) {
-        this.deletable = deletable;
     }
 
     @Override
@@ -150,11 +63,6 @@ public class ConnectionDTO
             return false;
         }
         return true;
-    }
-
-    @Override
-    public String toString() {
-        return "ConnectionDTO{" + "driverClassName=" + driverClassName + ", databaseURL=" + databaseURL + ", user=" + user + ", password=" + password + ", id=" + id + ", group=" + group + ", dbName=" + dbName + ", updatable=" + updatable + ", deletable=" + deletable + '}';
     }
     
 }

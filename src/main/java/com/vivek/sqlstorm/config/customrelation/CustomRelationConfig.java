@@ -23,30 +23,17 @@
  */
 package com.vivek.sqlstorm.config.customrelation;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
+
 import java.util.Map;
 
 /**
  *
  * @author Vivek Kumar <vivek43nit@gmail.com>
  */
+@Data
+@AllArgsConstructor
 public class CustomRelationConfig {
     Map<String, DatabaseConfig> databases;
-
-    public CustomRelationConfig(Map<String, DatabaseConfig> databases) {
-        this.databases = databases;
-    }
-
-    public Map<String, DatabaseConfig> getDatabases() {
-        return databases;
-    }
-
-    public void setDatabases(Map<String, DatabaseConfig> databases) {
-        this.databases = databases;
-    }
-
-    @Override
-    public String toString() {
-        return "CustomRelationConfig{" + "databases=" + databases + '}';
-    }
-      
 }
