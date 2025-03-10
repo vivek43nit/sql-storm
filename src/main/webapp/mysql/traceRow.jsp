@@ -9,9 +9,9 @@
 <%@page import="com.vivek.sqlstorm.dto.SessionDTO"%>
 <%@page import="com.vivek.sqlstorm.constants.Constants"%>
 <%@page import="org.json.JSONObject"%>
-<%@page import="org.apache.log4j.Logger"%>
+
 <%@page contentType="text/html" pageEncoding="UTF-8" errorPage="error.jsp"%>
-<%! static Logger logger = Logger.getLogger("traceRow.jsp");%>
+
 <%
     SessionDTO sessionDetails = (SessionDTO)session.getAttribute(Constants.SESSION_DETAILS);
     if(sessionDetails == null){

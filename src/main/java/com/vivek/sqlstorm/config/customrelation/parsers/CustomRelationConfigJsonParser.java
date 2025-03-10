@@ -37,7 +37,8 @@ import java.util.List;
 import java.util.Map;
 import com.vivek.sqlstorm.dto.ReferenceDTO;
 import com.vivek.sqlstorm.dto.MappingTableDto;
-import org.apache.log4j.Logger;
+import lombok.extern.log4j.Log4j2;
+
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -45,9 +46,9 @@ import org.json.JSONObject;
  *
  * @author Vivek Kumar <vivek43nit@gmail.com>
  */
-public class CustomRelationConfigJsonParser implements ConfigParserInterface<CustomRelationConfig> {
 
-    private static final Logger logger = Logger.getLogger(CustomRelationConfigJsonParser.class);
+@Log4j2
+public class CustomRelationConfigJsonParser implements ConfigParserInterface<CustomRelationConfig> {
 
     @Override
     public String getApplicationName() {
@@ -79,7 +80,7 @@ public class CustomRelationConfigJsonParser implements ConfigParserInterface<Cus
             }
             return new CustomRelationConfig(databaseMap);
         } catch (IOException ex) {
-            logger.error("Error in parsing the json file", ex);
+            log.error("Error in parsing the json file", ex);
             return null;
         }
     }

@@ -53,14 +53,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.apache.log4j.Logger;
+
+import lombok.extern.log4j.Log4j2;
 
 /**
  *
  * @author Vivek Kumar <vivek43nit@gmail.com>
  */
+@Log4j2
 public class DatabaseMetaDataManager {
-    private static final Logger logger = Logger.getLogger(DatabaseMetaDataManager.class);
         
     private static DatabaseMetaDataManager self = null;
     public static synchronized DatabaseMetaDataManager getInstance() throws FileNotFoundException, ConfigParsingError, NoParserRegistered
@@ -78,7 +79,7 @@ public class DatabaseMetaDataManager {
         ConfigParserFactory.registerParser(CustomRelationConfig.class, new CustomRelationConfigJsonParser());
         
         this.config = ConfigParserFactory.getParser(CustomRelationConfig.class).parse(Constants.CUSTOM_RELATION_CONFIG_FILE_NAME);
-        logger.debug("Loaded Config : "+config.toString());
+        log.debug("Loaded Config : "+config.toString());
         this.connectionManager = DatabaseConnectionManager.getInstance();
         init();
     }
@@ -149,13 +150,13 @@ public class DatabaseMetaDataManager {
             
             //adding indexing information to the columns
             List<IndexInfo> indexList = DBHelper.getAllIndexedColumns(con, dbtable.getTableName());
-            logger.debug("Indexes for Table "+dbtable.getTableName()+" : "+indexList);
+            log.debug("Indexes for Table "+dbtable.getTableName()+" : "+indexList);
             t.setIndexingInfo(indexList);
         }
         
         for(TableDTO dbtable : dbtables){
             List<ReferenceDTO> relations = DBHelper.getAllForeignKeys(con, dbtable.getTableName());
-            logger.debug("Relations for Table "+dbtable.getTableName()+" : "+relations);
+            log.debug("Relations for Table "+dbtable.getTableName()+" : "+relations);
             
             for(ReferenceDTO relation : relations){
                 ColumnPath referTo = new ColumnPath(relation.getReferenceDatabaseName(), relation.getReferenceTableName(), relation.getReferenceColumnName());
@@ -173,7 +174,7 @@ public class DatabaseMetaDataManager {
                     getWithoutCheckMetaData(dbmeta.getGroup(), referedBy.getDatabase()).getOrAddTableMetaData(referedBy.getTable())
                         .getOrAddColumnMetaData(referedBy.getColumn()).addReferTo(referTo);
                 }catch(ConnectionDetailNotFound ex){
-                    logger.warn("DB Config missing for :"+dbmeta);
+                    log.warn("DB Config missing for :"+dbmeta);
                 }
             }
         }
@@ -204,7 +205,7 @@ public class DatabaseMetaDataManager {
         //loading all custom relations
         for(Map.Entry<String,DatabaseConfig> databases : this.config.getDatabases().entrySet()){
             if(!databaseToGroup.containsKey(databases.getKey())){
-                logger.warn("database connection definition not found. So dropping this database to load :"+databases.getKey());
+                log.warn("database connection definition not found. So dropping this database to load :"+databases.getKey());
                 continue;
             }
             String databaseName = databases.getKey();

@@ -32,7 +32,8 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.log4j.Logger;
+
+import lombok.extern.log4j.Log4j2;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -40,9 +41,8 @@ import org.json.JSONObject;
  *
  * @author Vivek Kumar <vivek43nit@gmail.com>
  */
+@Log4j2
 public class DatabaseConfigJsonParser implements ConfigParserInterface<ConnectionConfig>{
-    
-    private static final Logger logger = Logger.getLogger(DatabaseConfigJsonParser.class);
     
     @Override
     public String getApplicationName() {
@@ -84,7 +84,7 @@ public class DatabaseConfigJsonParser implements ConfigParserInterface<Connectio
             conf.setMaxRetryCount(root.optInt("max_retry_count", conf.getMaxRetryCount()));
             return conf;
         } catch (IOException ex) {
-            logger.error("Unable to parse json file",ex);
+            log.error("Unable to parse json file",ex);
             return null;
         }
     }

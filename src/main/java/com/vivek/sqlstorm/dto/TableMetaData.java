@@ -5,13 +5,15 @@
  */
 package com.vivek.sqlstorm.dto;
 
+import lombok.extern.log4j.Log4j2;
+
 /**
  *
  * @author Vivek
  */
+@Log4j2
 public class TableMetaData {
     
-//    private static final Logger logger = Logger.getLogger(TableMetaData.class);
 //    
 //    private static HashMap<String, TableMetaData> cache = new HashMap<String, TableMetaData>();
 //    
@@ -79,7 +81,7 @@ public class TableMetaData {
 //        {
 //            con = DatabaseManager.getInstance().getConnection(this.groupName, this.dbName);
 //            String sql = "show full columns from "+this.tableName;
-//            logger.info(sql);
+//            log.info(sql);
 //
 //            PreparedStatement ps = con.prepareStatement(sql);
 //            
@@ -88,14 +90,14 @@ public class TableMetaData {
 //            {
 //                String comment = structure.getString("Comment");
 //                comments.add(comment);
-//                logger.info("column : "+structure.getString("Field")+" ; comment : "+comment);
+//                log.info("column : "+structure.getString("Field")+" ; comment : "+comment);
 //            }
 //            structure.close();
 //            ps.close();
 //        }
 //        catch (Exception ex)
 //        {
-//            logger.error(ex, ex);
+//            log.error(ex, ex);
 //        }
 //    }
 //    
@@ -103,7 +105,7 @@ public class TableMetaData {
 //        try {
 //            GetReferenceDAO.get(groupName, dbName, tableName, referedBy, referTo);
 //        } catch (Exception ex) {
-//            logger.error("Unable to load reference details from db", ex);
+//            log.error("Unable to load reference details from db", ex);
 //        }
 //        CustomRelationHandler.getReferences(dbName, tableName, referedBy, referTo);
 //    }

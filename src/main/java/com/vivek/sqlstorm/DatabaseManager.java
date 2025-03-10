@@ -35,14 +35,16 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Set;
-import org.apache.log4j.Logger;
+
+import lombok.extern.log4j.Log4j2;
 
 /**
  *
  * @author Vivek Kumar <vivek43nit@gmail.com>
  */
+
+@Log4j2
 public class DatabaseManager {
-    private static final Logger logger = Logger.getLogger(DatabaseManager.class);
     
     private static DatabaseManager self = null;
     public static synchronized DatabaseManager getInstance() throws FileNotFoundException, ConfigParsingError, NoParserRegistered

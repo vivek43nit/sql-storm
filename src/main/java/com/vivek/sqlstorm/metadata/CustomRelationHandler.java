@@ -5,25 +5,20 @@
  */
 package com.vivek.sqlstorm.metadata;
 
-import com.vivek.sqlstorm.dto.MappingTableDto;
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import com.vivek.utils.MultiMap;
-import com.vivek.sqlstorm.dto.ReferenceDTO;
-import com.vivek.utils.resource.ResorceFinder;
-import org.apache.log4j.Logger;
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import lombok.extern.log4j.Log4j2;
 
 /**
  *
  * @author root
  */
+
+@Log4j2
 public class CustomRelationHandler {
-//    private static final Logger logger = Logger.getLogger(CustomRelationHandler.class);
+
 //    
 //    private static String fileName = "custom_mapping.json";
 //    private static JSONObject mapping;
@@ -46,7 +41,7 @@ public class CustomRelationHandler {
 //        try {
 //            return mapping != null || loadMappingFromFile();
 //        } catch (IOException ex) {
-//            logger.error(ex);
+//            log.error(ex);
 //            return false;
 //        }
 //    }
@@ -63,15 +58,15 @@ public class CustomRelationHandler {
 //            infoDto.setTo(info.getString("to"));
 //            return infoDto;
 //        } catch (NullPointerException e) {
-//            logger.debug("No mapping found");
+//            log.debug("No mapping found");
 //        } catch (JSONException ex){
-//            logger.error("Invalid Config : "+ex.getMessage());
+//            log.error("Invalid Config : "+ex.getMessage());
 //        }
 //        return null;
 //    }
 //
 //    public static void getReferences(String currentDatabase, String currentTableName, MultiMap<String, ReferenceDTO> referedBy, MultiMap<String, ReferenceDTO> referTo) {
-//        logger.info("Current Database : "+currentDatabase+"; Current Table Name :"+currentTableName);
+//        log.info("Current Database : "+currentDatabase+"; Current Table Name :"+currentTableName);
 //        try {
 //            if (mapping != null || loadMappingFromFile()) {
 //                for (String fromDatabase : mapping.getJSONObject("databases").keySet()) {
@@ -99,7 +94,7 @@ public class CustomRelationHandler {
 //                        String fromTable = rel.getString("table_name");
 //                        String toTable = rel.getString("referenced_table_name");
 //                        
-////                        logger.info(fromDatabase+toDatabase+fromTable+toTable+currentDatabase+currentTableName);
+////                        log.info(fromDatabase+toDatabase+fromTable+toTable+currentDatabase+currentTableName);
 //                        
 //                        if ( (fromDatabase.equals(currentDatabase) && fromTable.equals(currentTableName)) ||
 //                             (toDatabase.equals(currentDatabase) && toTable.equals(currentTableName)) ) {
@@ -126,9 +121,9 @@ public class CustomRelationHandler {
 //                }
 //            }
 //        } catch (NullPointerException e) {
-//            logger.error(e);
+//            log.error(e);
 //        } catch (IOException ex) {
-//            logger.error(ex);
+//            log.error(ex);
 //        }
 //    }
 }

@@ -5,22 +5,16 @@
  */
 package com.vivek.sqlstorm.metadata;
 
-import com.vivek.sqlstorm.DatabaseManager;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import com.vivek.utils.MultiMap;
-import com.vivek.sqlstorm.dto.ReferenceDTO;
-import org.apache.log4j.Logger;
+import lombok.extern.log4j.Log4j2;
+
 
 /**
  *
  * @author Vivek
  */
+@Log4j2
 public class GetReferenceDAO {
 
-//    public static final Logger logger = Logger.getLogger(GetReferenceDAO.class);
 //
 //    public static void get(String groupName, String dbName, String tableName, MultiMap<String, ReferenceDTO> referedBy, MultiMap<String, ReferenceDTO> referTo) throws Exception {
 //        ReferenceDTO tmp;
@@ -31,7 +25,7 @@ public class GetReferenceDAO {
 //                + " from INFORMATION_SCHEMA.KEY_COLUMN_USAGE"
 //                + " where CONSTRAINT_SCHEMA=? and (REFERENCED_TABLE_NAME = ? or (TABLE_NAME=? and REFERENCED_TABLE_NAME <> ''))";
 //
-//        logger.info(sql + ";" + groupName + "," + dbName + "," + tableName);
+//        log.info(sql + ";" + groupName + "," + dbName + "," + tableName);
 //
 //        PreparedStatement ps = con.prepareStatement(sql);
 //        ps.setString(1, dbName);

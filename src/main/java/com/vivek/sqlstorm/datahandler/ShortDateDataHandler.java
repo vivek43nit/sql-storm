@@ -5,6 +5,8 @@
  */
 package com.vivek.sqlstorm.datahandler;
 
+import lombok.extern.log4j.Log4j2;
+
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -14,6 +16,7 @@ import java.util.TimeZone;
  *
  * @author Vivek
  */
+@Log4j2
 public class ShortDateDataHandler implements DataHandler{
 
     private static final SimpleDateFormat df = new SimpleDateFormat("dd MMM yyyy");
@@ -38,7 +41,7 @@ public class ShortDateDataHandler implements DataHandler{
         }
         catch (ParseException ex)
         {
-            DataManager.logger.error(ex, ex);
+            log.error(ex, ex);
             return null;
         }
     }

@@ -6,15 +6,16 @@
 package com.vivek.sqlstorm.datahandler;
 
 import java.util.HashMap;
-import org.apache.log4j.Logger;
+
+import lombok.extern.log4j.Log4j2;
+
 
 /**
  *
  * @author Vivek
  */
+@Log4j2
 public class DataManager {
-    
-    public static final Logger logger = Logger.getLogger(DataManager.class);
     
     private static HashMap<String, DataHandler> converters;
     
@@ -27,7 +28,7 @@ public class DataManager {
         }
         DataHandler handler = converters.get(dataType);
         if(handler == null){
-            logger.info("Invalid dataType : "+dataType);
+            log.info("Invalid dataType : "+dataType);
             return data;
         }
         return handler.get(data);
@@ -43,7 +44,7 @@ public class DataManager {
         dataType = dataType.toLowerCase();
         DataHandler handler = converters.get(dataType);
         if(handler == null){
-            logger.info("Invalid dataType : "+dataType);
+            log.info("Invalid dataType : "+dataType);
             return data;
         }
         return handler.set(data);

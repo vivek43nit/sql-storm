@@ -40,14 +40,16 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.log4j.Logger;
+
+import lombok.extern.log4j.Log4j2;
+
 
 /**
  *
  * @author Vivek Kumar <vivek43nit@gmail.com>
  */
+@Log4j2
 public class DatabaseConnectionManager {
-    private static final Logger logger = Logger.getLogger(DatabaseConnectionManager.class);
         
     private static DatabaseConnectionManager self = null;
     public static synchronized DatabaseConnectionManager getInstance() throws FileNotFoundException, ConfigParsingError, NoParserRegistered{
@@ -67,7 +69,7 @@ public class DatabaseConnectionManager {
         connectionMap = new HashMap<String, Map<String, ConnectionInfo>>();
         configs = ConfigParserFactory.getParser(ConnectionConfig.class).parse(Constants.CONNECTION_CONFIGURATION_FILE_NAME);
         for(ConnectionDTO config : configs.getConnections()){
-            logger.debug("Connection : "+config);
+            log.debug("Connection : "+config);
             addConnectionInfo(new ConnectionInfo(config));
         }
     }
@@ -206,7 +208,7 @@ public class DatabaseConnectionManager {
                 try {
                     this.connection.close();
                 } catch (SQLException ex) {
-                    logger.error("Error in closing the connection"+ex.getMessage());
+                    log.error("Error in closing the connection"+ex.getMessage());
                 }
             }
         }

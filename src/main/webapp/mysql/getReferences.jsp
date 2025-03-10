@@ -16,10 +16,11 @@
 <%@page import="com.vivek.sqlstorm.constants.Constants"%>
 <%@page import="org.json.JSONArray"%>
 <%@page import="org.json.JSONObject"%>
-<%@page import="org.apache.log4j.Logger"%>
+<%@page import="org.apache.logging.log4j.Logger"%>
+<%@page import="org.apache.logging.log4j.LogManager"%>
 <%@page import="java.util.ArrayList"%>
 <%@page contentType="text/html" pageEncoding="UTF-8" errorPage="error.jsp"%>
-<%! static Logger logger = Logger.getLogger("getReferences.jsp");%>
+<%! static Logger logger = LogManager.getLogger("getReferences.jsp");%>
 <jsp:useBean id="req" class="com.vivek.sqlstorm.dto.request.GetRelationsRequest"/>
 <jsp:setProperty name="req" property="*"/> 
 <%

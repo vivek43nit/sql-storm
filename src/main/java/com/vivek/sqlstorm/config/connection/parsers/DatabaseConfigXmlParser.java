@@ -13,8 +13,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.logging.Level;
-import org.apache.log4j.Logger;
+
+import lombok.extern.log4j.Log4j2;
+
 import org.jdom2.Document;
 import org.jdom2.Element;
 import org.jdom2.JDOMException;
@@ -24,9 +25,8 @@ import org.jdom2.input.SAXBuilder;
  *
  * @author root
  */
+@Log4j2
 public class DatabaseConfigXmlParser implements ConfigParserInterface<ConnectionConfig>{
-    
-    private static final Logger logger = Logger.getLogger(DatabaseConfigXmlParser.class);
             
     @Override
     public String getApplicationName() {
@@ -89,10 +89,10 @@ public class DatabaseConfigXmlParser implements ConfigParserInterface<Connection
             }
             return config;
         } catch (JDOMException ex) {
-            logger.error("Error in Parsing XML file", ex);
+            log.error("Error in Parsing XML file", ex);
             return null;
         } catch (IOException ex) {
-            logger.error("Error in Parsing XML file", ex);
+            log.error("Error in Parsing XML file", ex);
             return null;
         }
     }

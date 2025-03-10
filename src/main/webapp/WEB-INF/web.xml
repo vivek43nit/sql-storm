@@ -30,7 +30,7 @@
         <filter-name>SessionFilter</filter-name>
         <url-pattern>/mysql/*</url-pattern>
     </filter-mapping>-->
-    <session-config>
+    <!-- <session-config>
         <session-timeout>
             30
         </session-timeout>
@@ -42,5 +42,5 @@
     <context-param>
         <param-name>serverPort</param-name>
         <param-value>8080</param-value>
-    </context-param>
+    </context-param> -->
 </web-app>

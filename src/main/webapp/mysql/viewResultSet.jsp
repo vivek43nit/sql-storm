@@ -11,14 +11,15 @@
 <%@page import="com.vivek.sqlstorm.dto.TableDTO"%>
 <%@page import="com.vivek.sqlstorm.constants.Constants"%>
 <%@page import="com.vivek.sqlstorm.dto.SessionDTO"%>
-<%@page import="org.apache.log4j.Logger"%>
+<%@page import="org.apache.logging.log4j.Logger"%>
+<%@page import="org.apache.logging.log4j.LogManager"%>
 <%@page import="java.util.ArrayList"%>
 <%@page import="java.sql.PreparedStatement"%>
 <%@page import="java.sql.Connection"%>
 <%@page import="java.sql.ResultSet"%>
 <%@page import="java.sql.ResultSetMetaData"%>
 <%@page contentType="text/html" pageEncoding="UTF-8" errorPage="error.jsp"%>
-<%! static Logger logger = Logger.getLogger("viewResultSet.jsp");%>
+<%! static Logger logger = LogManager.getLogger("viewResultSet.jsp");%>
 <%
     SessionDTO sessionDetails = (SessionDTO) session.getAttribute(Constants.SESSION_DETAILS);
     if (sessionDetails == null) {

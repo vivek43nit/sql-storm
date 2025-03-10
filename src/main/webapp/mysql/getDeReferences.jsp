@@ -15,10 +15,11 @@
 <%@page import="java.util.Iterator"%>
 <%@page import="org.json.JSONArray"%>
 <%@page import="org.json.JSONObject"%>
-<%@page import="org.apache.log4j.Logger"%>
+<%@page import="org.apache.logging.log4j.Logger"%>
+<%@page import="org.apache.logging.log4j.LogManager"%>
 <%@page import="java.util.ArrayList"%>
 <%@page contentType="text/html" pageEncoding="UTF-8" errorPage="error.jsp"%>
-<%! static Logger logger = Logger.getLogger("getDeReferences.jsp");%>
+<%! static Logger logger = LogManager.getLogger("getDeReferences.jsp");%>
 <jsp:useBean id="req" class="com.vivek.sqlstorm.dto.request.GetRelationsRequest"/>
 <jsp:setProperty name="req" property="*"/> 
 <%

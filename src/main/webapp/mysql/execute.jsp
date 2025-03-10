@@ -6,13 +6,15 @@
 <%@page import="com.vivek.sqlstorm.DatabaseManager"%>
 <%@page import="com.vivek.sqlstorm.constants.Constants"%>
 <%@page import="com.vivek.sqlstorm.dto.SessionDTO"%>
-<%@page import="org.apache.log4j.Logger"%>
+<%@page import="org.apache.logging.log4j.Logger"%>
+<%@page import="org.apache.logging.log4j.LogManager"%>
 <%@page import="java.util.ArrayList"%>
 <%@page import="java.sql.ResultSet"%>
 <%@page import="java.sql.PreparedStatement"%>
 <%@page import="java.sql.Connection"%>
 <%@page contentType="text/html" pageEncoding="UTF-8" errorPage="error.jsp"%>
-<%! static Logger logger = Logger.getLogger("execute.jsp");%>
+
+<%! static Logger logger = LogManager.getLogger("execute.jsp");%>
 <jsp:useBean id="req" class="com.vivek.sqlstorm.dto.request.ExecuteRequest" scope="page"/>
 <jsp:setProperty name="req" property="*"/> 
 <%
