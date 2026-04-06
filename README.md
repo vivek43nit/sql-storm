@@ -1,5 +1,11 @@
 # SQL-Storm
 
+![Java](https://img.shields.io/badge/Java-11%2B-blue)
+![Maven](https://img.shields.io/badge/Build-Maven-red)
+![Tomcat](https://img.shields.io/badge/Server-Tomcat%209-yellow)
+![MySQL](https://img.shields.io/badge/DB-MySQL%20%7C%20MariaDB-4479A1)
+![License](https://img.shields.io/badge/License-MIT-green)
+
 A browser-based MySQL/MariaDB client that lets you navigate between tables by following foreign key relationships — both database-defined and custom-defined.
 
 Instead of writing JOINs manually, SQL-Storm builds a relationship graph from your schema and lets you click through related rows across tables and databases.
