@@ -2,18 +2,24 @@ import { useState } from 'react'
 import NavPanel from '../components/NavPanel'
 import QueryBar from '../components/QueryBar'
 import TableGrid from '../components/TableGrid'
+import ConverterPanel from '../components/ConverterPanel'
 import { executeQuery, logout } from '../api/client'
 
-export default function MainPage({ onLogout }) {
+export default function MainPage({ onLogout, onNavigate }) {
   const [context, setContext] = useState(null)
   const [resultSets, setResultSets] = useState([])
   const [error, setError] = useState(null)
+  const [rangeStart, setRangeStart] = useState(0)
+  const [rangeEnd, setRangeEnd] = useState(100)
+  const [refRowLimit, setRefRowLimit] = useState(100)
+  const [showConverter, setShowConverter] = useState(false)
 
   const handleTableSelect = async (ctx) => {
     setContext(ctx)
     setError(null)
     try {
-      const query = `SELECT * FROM \`${ctx.table}\` LIMIT 100`
+      const count = Math.max(0, rangeEnd - rangeStart)
+      const query = `SELECT * FROM \`${ctx.table}\` LIMIT ${rangeStart}, ${count}`
       const result = await executeQuery(ctx.group, query, ctx.database, 'S', ctx.table, 'self')
       setResultSets([result])
     } catch (err) {
@@ -36,7 +42,7 @@ export default function MainPage({ onLogout }) {
     setResultSets(newResults)
   }
 
-  const buildQuery = (table, filters, sort, limit = 100) => {
+  const buildQuery = (table, filters, sort) => {
     const escape = v => String(v).replace(/'/g, "''")
     let q = `SELECT * FROM \`${table}\``
     const conditions = Object.entries(filters).filter(([, v]) => v?.trim())
@@ -44,7 +50,8 @@ export default function MainPage({ onLogout }) {
       q += ' WHERE ' + conditions.map(([col, val]) => `\`${col}\` LIKE '%${escape(val)}%'`).join(' AND ')
     if (sort?.col)
       q += ` ORDER BY \`${sort.col}\` ${sort.dir}`
-    q += ` LIMIT ${limit}`
+    const count = Math.max(0, rangeEnd - rangeStart)
+    q += ` LIMIT ${rangeStart}, ${count}`
     return q
   }
 
@@ -58,6 +65,21 @@ export default function MainPage({ onLogout }) {
   const handleLogout = async () => {
     try { await logout() } catch {}
     onLogout()
+  }
+
+  const topBarInputStyle = {
+    width: 60, padding: '3px 6px', fontSize: 12,
+    border: '1px solid #334155', borderRadius: 'var(--radius-sm)',
+    background: '#1e293b', color: '#94a3b8',
+    textAlign: 'center',
+  }
+
+  const topBarLabelStyle = { fontSize: 11, color: '#475569' }
+
+  const topBarBtnStyle = {
+    background: 'transparent', border: '1px solid #334155',
+    color: '#64748b', padding: '4px 10px',
+    borderRadius: 'var(--radius-sm)', fontSize: 12, cursor: 'pointer',
   }
 
   return (
@@ -77,17 +99,47 @@ export default function MainPage({ onLogout }) {
             <span style={{ color: '#94a3b8', fontWeight: 600 }}>{context.table}</span>
           </span>
         )}
-        <button
-          onClick={handleLogout}
-          style={{
-            marginLeft: 'auto', background: 'transparent',
-            border: '1px solid #334155', color: '#64748b',
-            padding: '4px 12px', borderRadius: 'var(--radius-sm)', fontSize: 12,
-          }}
-        >
-          Logout
-        </button>
+
+        {/* Pagination range */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginLeft: 8 }}>
+          <span style={topBarLabelStyle}>Range:</span>
+          <input
+            type="number" min="0" value={rangeStart}
+            onChange={e => setRangeStart(Math.max(0, parseInt(e.target.value) || 0))}
+            style={topBarInputStyle}
+          />
+          <span style={topBarLabelStyle}>→</span>
+          <input
+            type="number" min="1" value={rangeEnd}
+            onChange={e => setRangeEnd(Math.max(1, parseInt(e.target.value) || 1))}
+            style={topBarInputStyle}
+          />
+        </div>
+
+        {/* Ref row limit */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <span style={topBarLabelStyle}>Ref limit:</span>
+          <input
+            type="number" min="1" value={refRowLimit}
+            onChange={e => setRefRowLimit(Math.max(1, parseInt(e.target.value) || 1))}
+            style={topBarInputStyle}
+          />
+        </div>
+
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            onClick={() => setShowConverter(v => !v)}
+            style={{ ...topBarBtnStyle, color: showConverter ? '#93c5fd' : '#64748b', borderColor: showConverter ? '#3b82f6' : '#334155' }}
+          >
+            Converter
+          </button>
+          <button onClick={() => onNavigate('admin-relations')} style={topBarBtnStyle}>Relations</button>
+          <button onClick={() => onNavigate('admin-suggestions')} style={topBarBtnStyle}>Suggestions</button>
+          <button onClick={handleLogout} style={topBarBtnStyle}>Logout</button>
+        </div>
       </div>
+
+      {showConverter && <ConverterPanel />}
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <NavPanel onTableSelect={handleTableSelect} />
@@ -117,6 +169,7 @@ export default function MainPage({ onLogout }) {
                 group={context?.group}
                 onAddResults={handleAddResults}
                 onReQuery={(filters, sort) => handleReQuery(i, rs.table, rs.database, filters, sort)}
+                refRowLimit={refRowLimit}
               />
             ))}
           </div>

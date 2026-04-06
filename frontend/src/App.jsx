@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react'
 import LoginPage from './pages/LoginPage'
 import MainPage from './pages/MainPage'
+import AdminRelationsPage from './pages/AdminRelationsPage'
+import AdminSuggestionsPage from './pages/AdminSuggestionsPage'
 import { getGroups } from './api/client'
 
 export default function App() {
   const [authed, setAuthed] = useState(null)  // null = checking, false = not authed, true = authed
+  const [currentPage, setCurrentPage] = useState('main')
 
   useEffect(() => {
     // Check if already logged in by hitting a protected endpoint
@@ -25,5 +28,13 @@ export default function App() {
     return <LoginPage onLogin={() => setAuthed(true)} />
   }
 
-  return <MainPage onLogout={() => setAuthed(false)} />
+  if (currentPage === 'admin-relations') {
+    return <AdminRelationsPage onNavigate={setCurrentPage} />
+  }
+
+  if (currentPage === 'admin-suggestions') {
+    return <AdminSuggestionsPage onNavigate={setCurrentPage} />
+  }
+
+  return <MainPage onLogout={() => { setAuthed(false); setCurrentPage('main') }} onNavigate={setCurrentPage} />
 }

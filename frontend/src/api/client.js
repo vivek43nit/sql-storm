@@ -52,3 +52,9 @@ export const editRow = (group, database, table, pk, pkValue, data) =>
 
 export const deleteRow = (group, database, table, pk, pkValue) =>
   client.delete('/row', { params: { group, database, table, pk, pkValue } }).then(r => r.data)
+
+export const getAdminRelations = (group, database, table) =>
+  client.get('/admin/relations', { params: { group, database, table } }).then(r => r.data)
+
+export const getAdminSuggestions = (group) =>
+  client.get('/admin/suggestions', { params: { group } }).then(r => r.data)
