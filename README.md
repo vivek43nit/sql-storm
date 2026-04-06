@@ -1,5 +1,7 @@
 # FkBlitz
 
+### _Blitz through your database by following foreign keys._
+
 ![Java](https://img.shields.io/badge/Java-11%2B-blue)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3-6DB33F)
 ![React](https://img.shields.io/badge/Frontend-React%2018-61DAFB)
@@ -10,6 +12,8 @@
 A browser-based MySQL/MariaDB client that lets you navigate between tables by following foreign key relationships — both database-defined and custom-defined.
 
 Instead of writing JOINs manually, FkBlitz builds a relationship graph from your schema and lets you click through related rows across tables and databases.
+
+> **Why FkBlitz?** FK = Foreign Key — the core of what this tool navigates. Blitz = fast. No JOINs, no context switching, no SQL spelunking. Just click a value and blitz through your data relationships instantly.
 
 ---
 
