@@ -2,6 +2,7 @@
 
 ### _Blitz through your database by following foreign keys._
 
+[![CI](https://github.com/vivek43nit/fkblitz/actions/workflows/ci.yml/badge.svg)](https://github.com/vivek43nit/fkblitz/actions/workflows/ci.yml)
 [![Java](https://img.shields.io/badge/Java-11%2B-blue)](https://adoptium.net/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3-6DB33F)](https://spring.io/projects/spring-boot)
 [![React](https://img.shields.io/badge/Frontend-React%2018-61DAFB)](https://react.dev/)
@@ -60,6 +61,20 @@ FkBlitz is purpose-built for **data exploration via relationships**. If you spen
 ---
 
 ## Quick Start
+
+### Docker (recommended)
+
+```sh
+git clone https://github.com/vivek43nit/fkblitz.git
+cd fkblitz
+docker compose up --build
+```
+
+Open [http://localhost:8080/fkblitz/](http://localhost:8080/fkblitz/) — default login: `admin` / `changeme`.
+
+Edit `backend/src/main/resources/DatabaseConnection.xml` to point at your database, then restart.
+
+### Manual
 
 ```sh
 git clone https://github.com/vivek43nit/fkblitz.git
