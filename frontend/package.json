@@ -1,5 +1,7 @@
 {
-  "name": "frontend",
+  "name": "fkblitz",
+  "description": "Browser-based MySQL/MariaDB client for navigating foreign key relationships",
+  "keywords": ["mysql", "mariadb", "database", "foreign-key", "sql-client", "database-browser", "spring-boot", "react"],
   "private": true,
   "version": "0.0.0",
   "type": "module",
