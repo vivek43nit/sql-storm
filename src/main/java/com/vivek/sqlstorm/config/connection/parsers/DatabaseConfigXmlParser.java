@@ -42,6 +42,11 @@ public class DatabaseConfigXmlParser implements ConfigParserInterface<Connection
     public ConnectionConfig parse(File file) {
         try {
             SAXBuilder builder = new SAXBuilder();
+            // Disable XXE (XML External Entity) processing
+            builder.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            builder.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            builder.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+            builder.setExpandEntities(false);
             Document doc = builder.build(file);
             Element root = doc.getRootElement();
             
