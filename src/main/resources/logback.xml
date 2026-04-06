@@ -1,0 +1,12 @@
+<configuration>
+    <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+        <file>/var/log/sql-storm.log</file>
+        <encoder>
+            <pattern>%d{dd MMM yyyy HH:mm:ss} %-5level %file|%line : %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="FILE" />
+    </root>
+</configuration>
