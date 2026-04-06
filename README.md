@@ -1,8 +1,9 @@
 # SQL-Storm
 
 ![Java](https://img.shields.io/badge/Java-11%2B-blue)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3-6DB33F)
+![React](https://img.shields.io/badge/Frontend-React%2018-61DAFB)
 ![Maven](https://img.shields.io/badge/Build-Maven-red)
-![Tomcat](https://img.shields.io/badge/Server-Tomcat%209-yellow)
 ![MySQL](https://img.shields.io/badge/DB-MySQL%20%7C%20MariaDB-4479A1)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
@@ -18,9 +19,13 @@ Instead of writing JOINs manually, SQL-Storm builds a relationship graph from yo
 - Navigate foreign key relationships in both directions (referTo / referencedBy)
 - Define custom relationships not captured by DB foreign keys
 - Support for many-to-many relationships through junction/mapping tables
-- Optional row-level edit and delete per connection
-- Custom data type rendering (IP addresses, timestamps)
-- Optional session-based authentication
+- Per-row Edit, Delete, and Add Row with modal form (requires `UPDATABLE`/`DELETABLE` on connection)
+- Configurable result range (start/end row pagination)
+- Configurable reference row limit for FK navigation
+- Converter utility: IP ↔ long, date ↔ epoch milliseconds, live clock
+- Admin pages: view FK relations and suggested relations per database
+- Per-column inline filters and sortable columns
+- Session-based authentication via Spring Security
 
 ---
 
@@ -28,8 +33,8 @@ Instead of writing JOINs manually, SQL-Storm builds a relationship graph from yo
 
 - Java 11+
 - Maven 3.6+
+- Node.js 18+ (for frontend development only)
 - MySQL or MariaDB
-- Apache Tomcat 9 (or use the embedded Tomcat via Maven)
 
 ---
 
@@ -42,11 +47,9 @@ cd sql-storm
 
 **1. Configure your database connections**
 
-Copy the sample config and add your connections:
-
 ```sh
 sudo mkdir -p /etc/sql-storm
-sudo cp src/main/resources/DatabaseConnection.xml /etc/sql-storm/DatabaseConnection.xml
+sudo cp backend/src/main/resources/DatabaseConnection.xml /etc/sql-storm/DatabaseConnection.xml
 ```
 
 Edit `/etc/sql-storm/DatabaseConnection.xml`:
@@ -65,13 +68,33 @@ Edit `/etc/sql-storm/DatabaseConnection.xml`:
 </CONNECTIONS>
 ```
 
-**2. Run with embedded Tomcat**
+**2. Run the backend**
 
 ```sh
-mvn tomcat7:run
+cd backend
+mvn spring-boot:run
 ```
 
-Open [http://localhost:9044/sql-storm/](http://localhost:9044/sql-storm/)
+The API is available at [http://localhost:8080/sql-storm/api/](http://localhost:8080/sql-storm/api/)
+
+**3. Run the frontend (development)**
+
+```sh
+cd frontend
+npm install
+npm run dev
+```
+
+Open [http://localhost:5173/](http://localhost:5173/)
+
+**4. Production build**
+
+```sh
+cd frontend && npm run build
+cd ../backend && mvn spring-boot:run
+```
+
+The built frontend is served by Spring Boot at [http://localhost:8080/sql-storm/](http://localhost:8080/sql-storm/)
 
 ---
 
@@ -95,16 +118,16 @@ SQL-Storm looks for this file in the following order:
 | `DATABASE_URL` | Yes | JDBC connection URL |
 | `USER_NAME` | Yes | Database username |
 | `PASSWORD` | Yes | Database password |
-| `UPDATABLE` | No | Set to `"true"` to allow row edits via the UI |
+| `UPDATABLE` | No | Set to `"true"` to allow row add and edit via the UI |
 | `DELETABLE` | No | Set to `"true"` to allow row deletes via the UI |
 | `NON_INDEXED_SEARCHABLE_ROW_LIMIT` | No | Row limit for searches on non-indexed columns |
 
 ### Custom Relationships — `custom_mapping.json` (optional)
 
-Define relationships that aren't captured by foreign keys in your schema. Useful for soft references, cross-database joins, or conditional relations.
+Define relationships not captured by foreign keys in your schema. Useful for soft references, cross-database joins, or conditional relations.
 
 ```sh
-sudo cp src/main/resources/custom_mapping.json /etc/sql-storm/custom_mapping.json
+sudo cp backend/src/main/resources/custom_mapping.json /etc/sql-storm/custom_mapping.json
 ```
 
 ```json
@@ -135,68 +158,48 @@ sudo cp src/main/resources/custom_mapping.json /etc/sql-storm/custom_mapping.jso
 
 **Mapping table types:** `ONE_TO_ONE`, `ONE_TO_MANY`, `MANY_TO_MANY`
 
-### Authentication (optional)
+### Authentication
 
-By default SQL-Storm is open. To enable session-based authentication, uncomment and configure the `SessionFilter` in `src/main/webapp/WEB-INF/web.xml`:
+SQL-Storm uses Spring Security. Default credentials are configured in `application.properties`:
 
-```xml
-<filter>
-    <filter-name>SessionFilter</filter-name>
-    <filter-class>com.vivek.filter.SessionFilter</filter-class>
-    <init-param><param-name>loginUrl</param-name><param-value>/login.jsp</param-value></init-param>
-    <init-param><param-name>sessionAttributeName</param-name><param-value>user</param-value></init-param>
-</filter>
-<filter-mapping>
-    <filter-name>SessionFilter</filter-name>
-    <url-pattern>/*</url-pattern>
-</filter-mapping>
+```properties
+spring.security.user.name=admin
+spring.security.user.password=secret
 ```
-
----
-
-## Deployment
-
-**Build a WAR file:**
-
-```sh
-mvn clean install
-```
-
-Deploy `target/sql-storm.war` to your Tomcat `webapps/` directory. The app will be available at `/sql-storm/`.
-
-See the [Tomcat deployment guide](https://tomcat.apache.org/tomcat-9.0-doc/deployer-howto.html) for details.
-
-**Logging:**
-
-Logs are written to `~/logs/sql-storm/sql-storm.log` by default (works on Linux, Mac, and Windows). To override the log directory, pass the JVM property at startup:
-
-```sh
--Dsql-storm.log.dir=/var/log/sql-storm
-```
-
-Logs roll daily and are retained for 30 days. You can also drop a custom `logback.xml` on the classpath to fully control logging behaviour.
 
 ---
 
 ## Project Structure
 
 ```
-src/main/
-├── java/com/vivek/
-│   ├── filter/              # Session authentication filter
-│   ├── sqlstorm/
-│   │   ├── DatabaseManager.java          # Main facade
-│   │   ├── connection/                   # Connection pooling
-│   │   ├── metadata/                     # Schema & relationship discovery
-│   │   ├── config/                       # Config parsing (XML/JSON)
-│   │   ├── datahandler/                  # Custom data type converters
-│   │   └── dto/                          # Data transfer objects
-│   └── utils/                            # Shared utilities
-├── resources/
-│   ├── DatabaseConnection.xml            # Connection config template
-│   ├── custom_mapping.json               # Custom relation config template
-│   └── logback.xml                       # Logging config
-└── webapp/mysql/                         # JSP pages + JS/CSS
+sql-storm/
+├── backend/                          # Spring Boot application
+│   └── src/main/java/com/vivek/
+│       ├── controller/               # REST controllers
+│       │   ├── ExecuteController     # POST /api/execute
+│       │   ├── MetaDataController    # groups, databases, tables, admin
+│       │   └── RowMutationController # add, edit, delete row
+│       ├── sqlstorm/
+│       │   ├── DatabaseManager.java  # Main facade
+│       │   ├── connection/           # Connection pooling
+│       │   ├── metadata/             # Schema & relationship discovery
+│       │   ├── config/               # Config parsing (XML/JSON)
+│       │   └── dto/                  # Data transfer objects
+│       └── utils/
+└── frontend/                         # React SPA (Vite + TanStack Table)
+    └── src/
+        ├── api/client.js             # Axios API client
+        ├── pages/
+        │   ├── MainPage.jsx          # Main layout
+        │   ├── LoginPage.jsx
+        │   ├── AdminRelationsPage.jsx
+        │   └── AdminSuggestionsPage.jsx
+        └── components/
+            ├── TableGrid.jsx         # Table with FK navigation & CRUD
+            ├── RowModal.jsx          # Add/Edit/Delete modal
+            ├── ConverterPanel.jsx    # IP↔long, date↔epoch, clock
+            ├── NavPanel.jsx          # Sidebar
+            └── QueryBar.jsx          # SQL editor bar
 ```
 
 ---
