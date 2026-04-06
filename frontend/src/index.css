@@ -1,0 +1,92 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+:root {
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+
+  --color-bg:        #f1f5f9;
+  --color-surface:   #ffffff;
+  --color-surface-2: #f8fafc;
+  --color-border:    #e2e8f0;
+  --color-border-2:  #cbd5e1;
+
+  --color-text:      #0f172a;
+  --color-text-2:    #475569;
+  --color-text-3:    #94a3b8;
+
+  --color-primary:       #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-bg:    #eff6ff;
+
+  --color-fk-refer:      #2563eb;
+  --color-fk-refer-bg:   #eff6ff;
+  --color-fk-refby:      #c2410c;
+  --color-fk-refby-bg:   #fff7ed;
+
+  --color-sidebar-bg:    #0f172a;
+  --color-sidebar-text:  #e2e8f0;
+  --color-sidebar-muted: #64748b;
+  --color-sidebar-hover: #1e293b;
+  --color-sidebar-active:#2563eb;
+
+  --color-error-bg:   #fef2f2;
+  --color-error-text: #dc2626;
+
+  --color-header-bg:  #0f172a;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.12);
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--color-text);
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  border: none;
+  outline: none;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+input, select, textarea {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--color-text);
+  border: 1px solid var(--color-border-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+}

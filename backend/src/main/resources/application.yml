@@ -1,0 +1,16 @@
+server:
+  port: 9044
+  servlet:
+    context-path: /sql-storm
+
+spring:
+  security:
+    user:
+      name: admin
+      password: changeme
+  session:
+    timeout: 30m
+
+sql-storm:
+  cors:
+    allowed-origins: "http://localhost:5173"
