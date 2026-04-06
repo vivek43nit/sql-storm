@@ -20,7 +20,7 @@ public class DatabaseConfigXmlParser implements ConfigParserInterface<Connection
 
     @Override
     public String getApplicationName() {
-        return "sql-storm";
+        return "fkblitz";
     }
 
     @Override

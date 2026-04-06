@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const BASE = '/sql-storm/api'
+const BASE = '/fkblitz/api'
 
 const client = axios.create({
   baseURL: BASE,

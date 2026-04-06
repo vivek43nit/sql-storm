@@ -62,7 +62,7 @@ export default function NavPanel({ onTableSelect }) {
         padding: '14px 16px', borderBottom: '1px solid #1e293b',
         fontWeight: 700, fontSize: 15, letterSpacing: '-0.2px', display: 'flex', alignItems: 'center', gap: 8,
       }}>
-        <span>⚡</span> SQL Storm
+        <span>⚡</span> FkBlitz
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px 12px 20px' }}>

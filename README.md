@@ -1,4 +1,4 @@
-# SQL-Storm
+# FkBlitz
 
 ![Java](https://img.shields.io/badge/Java-11%2B-blue)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3-6DB33F)
@@ -9,7 +9,7 @@
 
 A browser-based MySQL/MariaDB client that lets you navigate between tables by following foreign key relationships — both database-defined and custom-defined.
 
-Instead of writing JOINs manually, SQL-Storm builds a relationship graph from your schema and lets you click through related rows across tables and databases.
+Instead of writing JOINs manually, FkBlitz builds a relationship graph from your schema and lets you click through related rows across tables and databases.
 
 ---
 
@@ -41,18 +41,18 @@ Instead of writing JOINs manually, SQL-Storm builds a relationship graph from yo
 ## Quick Start
 
 ```sh
-git clone https://github.com/vivek43nit/sql-storm.git
-cd sql-storm
+git clone https://github.com/vivek43nit/fkblitz.git
+cd fkblitz
 ```
 
 **1. Configure your database connections**
 
 ```sh
-sudo mkdir -p /etc/sql-storm
-sudo cp backend/src/main/resources/DatabaseConnection.xml /etc/sql-storm/DatabaseConnection.xml
+sudo mkdir -p /etc/fkblitz
+sudo cp backend/src/main/resources/DatabaseConnection.xml /etc/fkblitz/DatabaseConnection.xml
 ```
 
-Edit `/etc/sql-storm/DatabaseConnection.xml`:
+Edit `/etc/fkblitz/DatabaseConnection.xml`:
 
 ```xml
 <CONNECTIONS CONNECTION_EXPIRY_TIME="3600000" MAX_RETRY_COUNT="10">
@@ -75,7 +75,7 @@ cd backend
 mvn spring-boot:run
 ```
 
-The API is available at [http://localhost:8080/sql-storm/api/](http://localhost:8080/sql-storm/api/)
+The API is available at [http://localhost:8080/fkblitz/api/](http://localhost:8080/fkblitz/api/)
 
 **3. Run the frontend (development)**
 
@@ -94,7 +94,7 @@ cd frontend && npm run build
 cd ../backend && mvn spring-boot:run
 ```
 
-The built frontend is served by Spring Boot at [http://localhost:8080/sql-storm/](http://localhost:8080/sql-storm/)
+The built frontend is served by Spring Boot at [http://localhost:8080/fkblitz/](http://localhost:8080/fkblitz/)
 
 ---
 
@@ -102,10 +102,10 @@ The built frontend is served by Spring Boot at [http://localhost:8080/sql-storm/
 
 ### Database Connections — `DatabaseConnection.xml`
 
-SQL-Storm looks for this file in the following order:
+FkBlitz looks for this file in the following order:
 
-1. `/etc/sql-storm/DatabaseConnection.xml`
-2. `~/.sql-storm/DatabaseConnection.xml`
+1. `/etc/fkblitz/DatabaseConnection.xml`
+2. `~/.fkblitz/DatabaseConnection.xml`
 3. `~/DatabaseConnection.xml`
 4. Classpath fallback (bundled sample)
 
@@ -127,7 +127,7 @@ SQL-Storm looks for this file in the following order:
 Define relationships not captured by foreign keys in your schema. Useful for soft references, cross-database joins, or conditional relations.
 
 ```sh
-sudo cp backend/src/main/resources/custom_mapping.json /etc/sql-storm/custom_mapping.json
+sudo cp backend/src/main/resources/custom_mapping.json /etc/fkblitz/custom_mapping.json
 ```
 
 ```json
@@ -160,7 +160,7 @@ sudo cp backend/src/main/resources/custom_mapping.json /etc/sql-storm/custom_map
 
 ### Authentication
 
-SQL-Storm uses Spring Security. Default credentials are configured in `application.properties`:
+FkBlitz uses Spring Security. Default credentials are configured in `application.properties`:
 
 ```properties
 spring.security.user.name=admin
@@ -172,7 +172,7 @@ spring.security.user.password=secret
 ## Project Structure
 
 ```
-sql-storm/
+fkblitz/
 ├── backend/                          # Spring Boot application
 │   └── src/main/java/com/vivek/
 │       ├── controller/               # REST controllers
@@ -204,7 +204,7 @@ sql-storm/
 
 ---
 
-## Extending SQL-Storm
+## Extending FkBlitz
 
 **Add a custom data type renderer** — implement `DataHandler` and register it in `DataManager`:
 

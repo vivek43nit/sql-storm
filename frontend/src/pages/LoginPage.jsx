@@ -33,7 +33,7 @@ export default function LoginPage({ onLogin }) {
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{ fontSize: 28, marginBottom: 8 }}>⚡</div>
           <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--color-text)', letterSpacing: '-0.3px' }}>
-            SQL Storm
+            FkBlitz
           </div>
           <div style={{ fontSize: 13, color: 'var(--color-text-3)', marginTop: 4 }}>
             Sign in to continue

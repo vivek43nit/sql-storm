@@ -47,7 +47,7 @@ public class ResorceFinder {
             // Running inside a JAR — extract resource to a temp file
             String ext = fileName.contains(".") ? fileName.substring(fileName.lastIndexOf('.')) : "";
             try {
-                File tmp = File.createTempFile("sql-storm-config-", ext);
+                File tmp = File.createTempFile("fkblitz-config-", ext);
                 tmp.deleteOnExit();
                 try (InputStream is = fileUrl.openStream();
                      FileOutputStream fos = new FileOutputStream(tmp)) {

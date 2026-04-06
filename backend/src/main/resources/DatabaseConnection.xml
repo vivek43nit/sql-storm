@@ -1,12 +1,12 @@
 <!--
 If you are deploying this webapp onto some prod server or stage server then
-better to keep this file at  /etc/sql-storm/DatabaseConnection.xml
+better to keep this file at  /etc/fkblitz/DatabaseConnection.xml
 -->
 <CONNECTIONS CONNECTION_EXPIRY_TIME="3600000" MAX_RETRY_COUNT="10">
 
-    <CONNECTION ID="1" GROUP="localhost" DB_NAME="sql-storm-test"
+    <CONNECTION ID="1" GROUP="localhost" DB_NAME="fkblitz-test"
                 USER_NAME="sqlstorm" PASSWORD="sqlstorm123" DRIVER_CLASS_NAME="org.mariadb.jdbc.Driver"
-                DATABASE_URL="jdbc:mariadb://localhost/sql-storm-test?useInformationSchema=true"
+                DATABASE_URL="jdbc:mariadb://localhost/fkblitz-test?useInformationSchema=true"
                 UPDATABLE="true" DELETABLE="true"/>
 
 </CONNECTIONS>

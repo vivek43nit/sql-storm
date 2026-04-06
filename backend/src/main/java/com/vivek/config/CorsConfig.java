@@ -12,7 +12,7 @@ import java.util.List;
 @Configuration
 public class CorsConfig {
 
-    @Value("${sql-storm.cors.allowed-origins:http://localhost:5173}")
+    @Value("${fkblitz.cors.allowed-origins:http://localhost:5173}")
     private String allowedOrigins;
 
     @Bean

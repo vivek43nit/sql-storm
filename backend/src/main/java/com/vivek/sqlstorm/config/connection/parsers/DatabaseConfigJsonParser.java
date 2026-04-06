@@ -46,7 +46,7 @@ public class DatabaseConfigJsonParser implements ConfigParserInterface<Connectio
     
     @Override
     public String getApplicationName() {
-        return "sql-storm";
+        return "fkblitz";
     }
 
     @Override

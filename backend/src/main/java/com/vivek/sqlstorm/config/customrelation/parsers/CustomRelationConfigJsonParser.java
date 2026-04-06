@@ -51,7 +51,7 @@ public class CustomRelationConfigJsonParser implements ConfigParserInterface<Cus
 
     @Override
     public String getApplicationName() {
-        return "sql-storm";
+        return "fkblitz";
     }
 
     @Override

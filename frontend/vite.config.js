@@ -5,7 +5,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/sql-storm': {
+      '/fkblitz': {
         target: 'http://localhost:9044',
         changeOrigin: true,
       }

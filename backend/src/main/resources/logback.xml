@@ -1,5 +1,5 @@
 <configuration>
-    <property name="LOG_DIR" value="${sql-storm.log.dir:-${user.home}/logs/sql-storm}" />
+    <property name="LOG_DIR" value="${fkblitz.log.dir:-${user.home}/logs/fkblitz}" />
 
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
@@ -8,9 +8,9 @@
     </appender>
 
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${LOG_DIR}/sql-storm.log</file>
+        <file>${LOG_DIR}/fkblitz.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>${LOG_DIR}/sql-storm.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <fileNamePattern>${LOG_DIR}/fkblitz.%d{yyyy-MM-dd}.log</fileNamePattern>
             <maxHistory>30</maxHistory>
         </rollingPolicy>
         <encoder>
