@@ -15,7 +15,7 @@
         <servlet.api.version>4.0.1</servlet.api.version>
         <lombok.version>1.18.36</lombok.version>
         <slf4j.version>2.0.13</slf4j.version>
-        <logback.version>1.5.6</logback.version>
+        <logback.version>1.5.12</logback.version>
     </properties>
 
     <dependencies>
@@ -70,6 +70,13 @@
             <groupId>org.mariadb.jdbc</groupId>
             <artifactId>mariadb-java-client</artifactId>
             <version>3.4.1</version>
+            <exclusions>
+                <!-- Windows-only NTLM/Kerberos auth library; not needed on Linux/Mac -->
+                <exclusion>
+                    <groupId>com.github.waffle</groupId>
+                    <artifactId>waffle-jna</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
     <build>
