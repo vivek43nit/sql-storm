@@ -168,7 +168,13 @@ See the [Tomcat deployment guide](https://tomcat.apache.org/tomcat-9.0-doc/deplo
 
 **Logging:**
 
-Logs are written to `/var/log/sql-storm.log` by default. Ensure the Tomcat process has write permission, or override by placing a `logback.xml` on the classpath.
+Logs are written to `~/logs/sql-storm/sql-storm.log` by default (works on Linux, Mac, and Windows). To override the log directory, pass the JVM property at startup:
+
+```sh
+-Dsql-storm.log.dir=/var/log/sql-storm
+```
+
+Logs roll daily and are retained for 30 days. You can also drop a custom `logback.xml` on the classpath to fully control logging behaviour.
 
 ---
 
