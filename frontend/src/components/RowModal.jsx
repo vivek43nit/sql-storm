@@ -1,9 +1,18 @@
 import { useState } from 'react'
 
+// Normalize ISO 8601 datetimes (e.g. "2026-04-06T17:48:50.000+00:00") to
+// MariaDB/MySQL format ("2026-04-06 17:48:50") which ps.setObject accepts.
+function normalizeValue(val) {
+  if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(val)) {
+    return val.replace('T', ' ').replace(/(\.\d+)?(Z|[+-]\d{2}:\d{2})?$/, '')
+  }
+  return val == null ? '' : String(val)
+}
+
 export default function RowModal({ mode, columns, row, pk, onSave, onDelete, onClose }) {
   const [formData, setFormData] = useState(() => {
     if (mode === 'edit' && row) {
-      return Object.fromEntries(columns.map(col => [col, row[col] ?? '']))
+      return Object.fromEntries(columns.map(col => [col, normalizeValue(row[col])]))
     }
     return Object.fromEntries(columns.map(col => [col, '']))
   })

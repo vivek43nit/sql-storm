@@ -7,6 +7,6 @@ better to keep this file at  /etc/sql-storm/DatabaseConnection.xml
     <CONNECTION ID="1" GROUP="localhost" DB_NAME="sql-storm-test"
                 USER_NAME="sqlstorm" PASSWORD="sqlstorm123" DRIVER_CLASS_NAME="org.mariadb.jdbc.Driver"
                 DATABASE_URL="jdbc:mariadb://localhost/sql-storm-test?useInformationSchema=true"
-                UPDATABLE="" DELETABLE=""/>
+                UPDATABLE="true" DELETABLE="true"/>
 
 </CONNECTIONS>
