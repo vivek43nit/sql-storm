@@ -25,6 +25,8 @@ export default function TableGrid({ resultSet, group, onAddResults, onReQuery, r
   const referTo = resultSet?.referToColumns ?? {}
   const referencedBy = resultSet?.referencedByColumns ?? {}
   const pk = resultSet?.pk || null
+  const canEdit = isSelfRelation && pk && resultSet?.updatable
+  const canDelete = isSelfRelation && pk && resultSet?.deletable
 
   const relationCol = useMemo(() => {
     if (isSelfRelation) return null
@@ -202,7 +204,7 @@ export default function TableGrid({ resultSet, group, onAddResults, onReQuery, r
             </span>
           )}
 
-          {isSelfRelation && pk && (
+          {canEdit && (
             <button
               onClick={() => setModal({ mode: 'add', row: null })}
               style={{ marginLeft: 'auto', fontSize: 11, padding: '2px 10px', background: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}
@@ -320,23 +322,23 @@ export default function TableGrid({ resultSet, group, onAddResults, onReQuery, r
                       >
                         {loading === `trace-${idx}` ? '…' : 'Trace'}
                       </button>
-                      {isSelfRelation && pk && (
-                        <>
-                          <button
-                            onClick={() => setModal({ mode: 'edit', row: row.original })}
-                            title="Edit row"
-                            style={{ fontSize: 11, padding: '2px 7px', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: 3 }}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => setModal({ mode: 'delete', row: row.original })}
-                            title="Delete row"
-                            style={{ fontSize: 11, padding: '2px 7px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: 3 }}
-                          >
-                            Del
-                          </button>
-                        </>
+                      {canEdit && (
+                        <button
+                          onClick={() => setModal({ mode: 'edit', row: row.original })}
+                          title="Edit row"
+                          style={{ fontSize: 11, padding: '2px 7px', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: 3 }}
+                        >
+                          Edit
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button
+                          onClick={() => setModal({ mode: 'delete', row: row.original })}
+                          title="Delete row"
+                          style={{ fontSize: 11, padding: '2px 7px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: 3 }}
+                        >
+                          Del
+                        </button>
                       )}
                     </div>
                   </td>

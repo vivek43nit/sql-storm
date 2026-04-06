@@ -266,6 +266,7 @@ public class QueryController {
 
             if (!referTo.isEmpty()) dto.setReferToColumns(referTo);
             if (!referencedBy.isEmpty()) dto.setReferencedByColumns(referencedBy);
+            if (tableMeta.getPrimaryKey() != null) dto.setPk(tableMeta.getPrimaryKey());
 
         } catch (Exception e) {
             logger.warn("Could not enrich FK metadata for " + dto.getTable() + ": " + e.getMessage());

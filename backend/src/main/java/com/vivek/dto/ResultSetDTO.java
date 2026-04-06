@@ -23,4 +23,6 @@ public class ResultSetDTO {
     private Map<String, List<String>> referToColumns;
     // referencedByColumns: other tables reference this column (show child rows)
     private Map<String, List<String>> referencedByColumns;
+
+    private String pk;
 }
