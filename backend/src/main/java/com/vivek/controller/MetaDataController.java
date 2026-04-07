@@ -5,6 +5,8 @@ import com.vivek.sqlstorm.DatabaseManager;
 import com.vivek.sqlstorm.dto.ColumnDTO;
 import com.vivek.sqlstorm.dto.TableDTO;
 import com.vivek.sqlstorm.exceptions.ConnectionDetailNotFound;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,6 +16,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api")
+@Tag(name = "Metadata", description = "Database groups, schemas, tables, and FK relation discovery")
 public class MetaDataController {
 
     private final DatabaseManager databaseManager;
@@ -22,11 +25,13 @@ public class MetaDataController {
         this.databaseManager = databaseManager;
     }
 
+    @Operation(summary = "List all connection groups")
     @GetMapping("/groups")
     public Set<String> getGroups() {
         return databaseManager.getGroupNames();
     }
 
+    @Operation(summary = "List databases in a group")
     @GetMapping("/databases")
     public ResponseEntity<?> getDatabases(@RequestParam String group) {
         try {
@@ -36,6 +41,7 @@ public class MetaDataController {
         }
     }
 
+    @Operation(summary = "List tables in a database")
     @GetMapping("/tables")
     public ResponseEntity<?> getTables(@RequestParam String group, @RequestParam String database) {
         try {

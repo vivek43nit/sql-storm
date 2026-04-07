@@ -1,11 +1,18 @@
-import { useState } from 'react'
-import { login } from '../api/client'
+import { useState, useEffect } from 'react'
+import { login, getAuthConfig } from '../api/client'
 
 export default function LoginPage({ onLogin }) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [oauth2Enabled, setOauth2Enabled] = useState(false)
+
+  useEffect(() => {
+    getAuthConfig()
+      .then(cfg => setOauth2Enabled(cfg.oauth2Enabled))
+      .catch(() => {}) // silently ignore
+  }, [])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -40,12 +47,36 @@ export default function LoginPage({ onLogin }) {
           </div>
         </div>
 
+        {oauth2Enabled && (
+          <div style={{ marginBottom: 20 }}>
+            <a
+              href="/fkblitz/oauth2/authorization/google"
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                width: '100%', padding: '9px 0',
+                border: '1px solid var(--color-border-2)', borderRadius: 'var(--radius-md)',
+                fontSize: 13, color: 'var(--color-text)', fontWeight: 500,
+                textDecoration: 'none', background: 'var(--color-surface-2)',
+              }}
+            >
+              Sign in with Google
+            </a>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '16px 0' }}>
+              <hr style={{ flex: 1, border: 'none', borderTop: '1px solid var(--color-border)' }} />
+              <span style={{ fontSize: 11, color: 'var(--color-text-3)' }}>or</span>
+              <hr style={{ flex: 1, border: 'none', borderTop: '1px solid var(--color-border)' }} />
+            </div>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: 16 }}>
-            <label style={{ display: 'block', marginBottom: 6, fontWeight: 500, fontSize: 13, color: 'var(--color-text-2)' }}>
+            <label htmlFor="login-username" style={{ display: 'block', marginBottom: 6, fontWeight: 500, fontSize: 13, color: 'var(--color-text-2)' }}>
               Username
             </label>
             <input
+              id="login-username"
               type="text"
               value={username}
               onChange={e => setUsername(e.target.value)}
@@ -56,10 +87,11 @@ export default function LoginPage({ onLogin }) {
           </div>
 
           <div style={{ marginBottom: 24 }}>
-            <label style={{ display: 'block', marginBottom: 6, fontWeight: 500, fontSize: 13, color: 'var(--color-text-2)' }}>
+            <label htmlFor="login-password" style={{ display: 'block', marginBottom: 6, fontWeight: 500, fontSize: 13, color: 'var(--color-text-2)' }}>
               Password
             </label>
             <input
+              id="login-password"
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}

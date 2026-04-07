@@ -1,0 +1,157 @@
+## FkBlitz Helm Chart — default values
+## Override in a separate values file: helm install fkblitz ./helm/fkblitz -f my-values.yaml
+
+replicaCount: 2
+
+image:
+  repository: ghcr.io/vivek43nit/fkblitz
+  tag: latest
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# ── Application ───────────────────────────────────────────────────────────────
+
+app:
+  port: 9044
+  contextPath: /fkblitz
+
+  # Admin bootstrap credentials (used on first start to seed the admin user).
+  # Store real values in a sealed secret or external-secrets operator.
+  adminUser: admin
+  # adminPassword is read from secret.adminPassword below
+
+  # Spring profile to activate (e.g. "prod" enables JSON logging)
+  springProfile: prod
+
+  # Path inside the container where DatabaseConnection.xml is expected.
+  # Mount your config via configmap.connectionXml or an external volume.
+  configDir: /etc/fkblitz
+
+  # Extra environment variables (key: value map)
+  extraEnv: {}
+
+# ── Auth user store ───────────────────────────────────────────────────────────
+auth:
+  userStore: h2   # h2 | mysql | config | external-api
+
+# ── Redis ─────────────────────────────────────────────────────────────────────
+redis:
+  enabled: true
+  # When enabled=true the chart deploys a single-node Redis alongside fkblitz.
+  # For production, disable this and point to an external Redis cluster.
+  internal:
+    image: redis:7-alpine
+    port: 6379
+    # No persistence configured — Redis is used only as a cache and session store.
+    # Both are ephemeral by design: cache is rebuilt from MySQL on the next request,
+    # sessions expire naturally. emptyDir is used in the Deployment; no PVC needed.
+  # If redis.enabled=true but redis.internal is not desired, set:
+  #   redis.host / redis.port to point to an external Redis.
+  host: ""    # defaults to the internal service name when empty
+  port: 6379
+
+# ── OAuth2 ────────────────────────────────────────────────────────────────────
+oauth2:
+  enabled: false
+  # clientId and clientSecret are read from the secret when enabled
+
+# ── Secrets ──────────────────────────────────────────────────────────────────
+# All sensitive values live in a single K8s Secret.
+# You may supply a pre-existing secret name and skip chart-managed secret creation.
+secret:
+  # Set to the name of an existing secret to skip creation.
+  existingSecret: ""
+  adminPassword: changeme      # FKBLITZ_ADMIN_PASSWORD
+  redisPassword: ""            # REDIS_PASSWORD (empty = no auth)
+  oauth2ClientSecret: ""       # OAUTH2_CLIENT_SECRET
+
+# ── DatabaseConnection.xml ────────────────────────────────────────────────────
+# Inline the content of your DatabaseConnection.xml here.
+# The chart mounts it into app.configDir so the app can read it at boot.
+configmap:
+  connectionXml: |
+    <CONNECTIONS CONNECTION_EXPIRY_TIME="3600000" MAX_RETRY_COUNT="3">
+      <!-- Add your database groups here -->
+    </CONNECTIONS>
+
+# ── Service ───────────────────────────────────────────────────────────────────
+service:
+  type: ClusterIP
+  port: 80
+  # nodePort: 30044   # only used when type=NodePort
+
+# ── Ingress ───────────────────────────────────────────────────────────────────
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+    # nginx.ingress.kubernetes.io/rewrite-target: /
+  hosts:
+    - host: fkblitz.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  #  - secretName: fkblitz-tls
+  #    hosts:
+  #      - fkblitz.example.com
+
+# ── Resources ─────────────────────────────────────────────────────────────────
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+
+# ── Autoscaling ───────────────────────────────────────────────────────────────
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+
+# ── Probes ────────────────────────────────────────────────────────────────────
+livenessProbe:
+  httpGet:
+    path: /fkblitz/actuator/health/liveness
+    port: 9044
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /fkblitz/actuator/health/readiness
+    port: 9044
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  failureThreshold: 3
+
+# ── Prometheus Operator ───────────────────────────────────────────────────────
+serviceMonitor:
+  enabled: false   # set true if prometheus-operator is installed
+  namespace: ""    # defaults to release namespace
+  interval: 30s
+  scrapeTimeout: 10s
+  # Path where Prometheus metrics are exposed
+  metricsPath: /fkblitz/actuator/prometheus
+
+# ── Pod settings ─────────────────────────────────────────────────────────────
+podAnnotations: {}
+podSecurityContext: {}
+securityContext: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}

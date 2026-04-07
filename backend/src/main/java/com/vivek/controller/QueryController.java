@@ -1,7 +1,9 @@
 package com.vivek.controller;
 
 import com.vivek.dto.ResultSetDTO;
+import com.vivek.metrics.FkBlitzMetrics;
 import com.vivek.sqlstorm.DatabaseManager;
+import com.vivek.sqlstorm.config.customrelation.CustomRelationConfig;
 import com.vivek.sqlstorm.constants.Constants;
 import com.vivek.sqlstorm.dto.ColumnDTO;
 import com.vivek.sqlstorm.dto.ColumnPath;
@@ -10,9 +12,13 @@ import com.vivek.sqlstorm.dto.request.ExecuteRequest;
 import com.vivek.sqlstorm.dto.request.GetRelationsRequest;
 import com.vivek.sqlstorm.exceptions.ConnectionDetailNotFound;
 import com.vivek.sqlstorm.utils.DBHelper;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.apache.log4j.Logger;
 import org.json.JSONObject;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.sql.*;
@@ -20,22 +26,27 @@ import java.util.*;
 
 @RestController
 @RequestMapping("/api")
+@Tag(name = "Query", description = "Execute SQL queries and navigate FK relationships")
 public class QueryController {
 
     private static final Logger logger = Logger.getLogger(QueryController.class);
 
     private final DatabaseManager databaseManager;
+    private final FkBlitzMetrics metrics;
 
-    public QueryController(DatabaseManager databaseManager) {
+    public QueryController(DatabaseManager databaseManager, FkBlitzMetrics metrics) {
         this.databaseManager = databaseManager;
+        this.metrics = metrics;
     }
 
+    @Operation(summary = "Execute a SQL query", description = "Runs a SELECT or DML statement against the specified database. Rate-limited to 60 req/min per user.")
     @PostMapping("/execute")
     public ResponseEntity<?> execute(@RequestParam String group,
                                      @RequestBody ExecuteRequest req) {
         if (!req.isValid()) {
             return ResponseEntity.badRequest().body("Invalid request");
         }
+        long start = System.currentTimeMillis();
         try {
             boolean updatable = databaseManager.isUpdatableConnection(group, req.getDatabase());
             boolean deletable = databaseManager.isDeletableConnection(group, req.getDatabase());
@@ -54,14 +65,17 @@ public class QueryController {
             Connection con = databaseManager.getConnection(group, req.getDatabase());
             ResultSetDTO dto = executeSelectQuery(con, req.getQuery(), req.getInfo(),
                     req.getRelation(), group, req.getDatabase(), updatable, deletable);
+            metrics.recordQuerySuccess(group, req.getDatabase(), System.currentTimeMillis() - start);
             return ResponseEntity.ok(dto);
 
         } catch (ConnectionDetailNotFound | SQLException | ClassNotFoundException e) {
+            metrics.recordQueryError(group, req.getDatabase());
             logger.error("Execute error: " + e.getMessage(), e);
             return ResponseEntity.internalServerError().body(e.getMessage());
         }
     }
 
+    @Operation(summary = "Get rows that reference this value", description = "Returns all rows in other tables whose FK column points to this column's value.")
     @GetMapping("/references")
     public ResponseEntity<?> getReferences(@RequestParam String group,
                                             @RequestParam String database,
@@ -107,6 +121,7 @@ public class QueryController {
         }
     }
 
+    @Operation(summary = "Get rows this value references (FK look-up)", description = "Follows FK pointers from this column's value to the referenced table.")
     @GetMapping("/dereferences")
     public ResponseEntity<?> getDeReferences(@RequestParam String group,
                                               @RequestParam String database,
@@ -154,6 +169,7 @@ public class QueryController {
         }
     }
 
+    @Operation(summary = "Trace all FK connections for a row", description = "Combines references + dereferences to show the full FK graph for a given row.")
     @GetMapping("/trace")
     public ResponseEntity<?> traceRow(@RequestParam String group,
                                        @RequestParam String database,
@@ -192,6 +208,16 @@ public class QueryController {
             logger.error("Trace error: " + e.getMessage(), e);
             return ResponseEntity.internalServerError().body(e.getMessage());
         }
+    }
+
+    private static final String MASKED = "\u2022\u2022\u2022\u2022\u2022\u2022";
+
+    private boolean canViewSensitive() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) return false;
+        return auth.getAuthorities().stream()
+                .anyMatch(a -> "SENSITIVE_DATA_RO".equals(a.getAuthority())
+                        || "SENSITIVE_DATA_RW".equals(a.getAuthority()));
     }
 
     private ResultSetDTO executeSelectQuery(Connection con, String query, String info, String relation,
@@ -234,6 +260,20 @@ public class QueryController {
 
         // Populate FK metadata so frontend knows which columns have navigable links
         enrichWithFkMetadata(dto, group, database);
+
+        // Mask sensitive column values if user lacks SENSITIVE_DATA_RO
+        if (!canViewSensitive() && dto.getTable() != null) {
+            CustomRelationConfig customCfg = databaseManager.getCustomRelationConfig();
+            if (customCfg != null) {
+                for (Map<String, Object> row : dto.getRows()) {
+                    for (String col : dto.getColumns()) {
+                        if (customCfg.isSensitive(database, dto.getTable(), col)) {
+                            row.put(col, MASKED);
+                        }
+                    }
+                }
+            }
+        }
 
         return dto;
     }

@@ -3,18 +3,39 @@ import LoginPage from './pages/LoginPage'
 import MainPage from './pages/MainPage'
 import AdminRelationsPage from './pages/AdminRelationsPage'
 import AdminSuggestionsPage from './pages/AdminSuggestionsPage'
-import { getGroups } from './api/client'
+import { getGroups, getMe } from './api/client'
 
 export default function App() {
-  const [authed, setAuthed] = useState(null)  // null = checking, false = not authed, true = authed
+  const [authed, setAuthed] = useState(null)  // null=checking, false=not authed, true=authed
+  const [user, setUser] = useState(null)       // { username, role, permissions }
   const [currentPage, setCurrentPage] = useState('main')
 
-  useEffect(() => {
-    // Check if already logged in by hitting a protected endpoint
-    getGroups()
-      .then(() => setAuthed(true))
+  const checkAuth = () => {
+    getMe()
+      .then(u => { setUser(u); setAuthed(true) })
       .catch(() => setAuthed(false))
+  }
+
+  useEffect(() => {
+    checkAuth()
+    // Listen for 401 events fired by the axios interceptor
+    const handler = () => { setAuthed(false); setUser(null) }
+    window.addEventListener('fkblitz:unauthorized', handler)
+    return () => window.removeEventListener('fkblitz:unauthorized', handler)
   }, [])
+
+  const handleLogin = () => {
+    // Fetch user info now that session is active
+    getMe()
+      .then(u => { setUser(u); setAuthed(true) })
+      .catch(() => setAuthed(false))
+  }
+
+  const handleLogout = () => {
+    setAuthed(false)
+    setUser(null)
+    setCurrentPage('main')
+  }
 
   if (authed === null) {
     return (
@@ -25,7 +46,7 @@ export default function App() {
   }
 
   if (!authed) {
-    return <LoginPage onLogin={() => setAuthed(true)} />
+    return <LoginPage onLogin={handleLogin} />
   }
 
   if (currentPage === 'admin-relations') {
@@ -36,5 +57,11 @@ export default function App() {
     return <AdminSuggestionsPage onNavigate={setCurrentPage} />
   }
 
-  return <MainPage onLogout={() => { setAuthed(false); setCurrentPage('main') }} onNavigate={setCurrentPage} />
+  return (
+    <MainPage
+      onLogout={handleLogout}
+      onNavigate={setCurrentPage}
+      user={user}
+    />
+  )
 }

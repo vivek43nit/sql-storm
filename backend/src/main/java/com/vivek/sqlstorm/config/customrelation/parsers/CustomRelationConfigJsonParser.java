@@ -77,7 +77,24 @@ public class CustomRelationConfigJsonParser implements ConfigParserInterface<Cus
                 dbConfig.setAutoResolve(getAutoResolveTables(databases.getJSONObject(database).optJSONObject("auto_resolve")));
                 databaseMap.put(database, dbConfig);
             }
-            return new CustomRelationConfig(databaseMap);
+            CustomRelationConfig result = new CustomRelationConfig(databaseMap);
+
+            // Parse sensitiveColumns (optional)
+            JSONArray sensitiveArr = config.optJSONArray("sensitiveColumns");
+            if (sensitiveArr != null) {
+                List<CustomRelationConfig.SensitiveColumn> sensitiveColumns = new ArrayList<>();
+                for (Object item : sensitiveArr) {
+                    JSONObject sc = (JSONObject) item;
+                    CustomRelationConfig.SensitiveColumn col = new CustomRelationConfig.SensitiveColumn();
+                    col.setDatabase(sc.getString("database"));
+                    col.setTable(sc.getString("table"));
+                    col.setColumn(sc.getString("column"));
+                    sensitiveColumns.add(col);
+                }
+                result.setSensitiveColumns(sensitiveColumns);
+            }
+
+            return result;
         } catch (IOException ex) {
             logger.error("Error in parsing the json file", ex);
             return null;

@@ -26,9 +26,8 @@ package com.vivek.sqlstorm.metadata;
 import com.vivek.sqlstorm.config.connection.ConnectionDTO;
 import com.vivek.sqlstorm.config.customrelation.CustomRelationConfig;
 import com.vivek.sqlstorm.config.customrelation.DatabaseConfig;
-import com.vivek.sqlstorm.config.customrelation.parsers.CustomRelationConfigJsonParser;
+import com.vivek.sqlstorm.config.loader.ConfigLoaderStrategy;
 import com.vivek.sqlstorm.connection.DatabaseConnectionManager;
-import com.vivek.sqlstorm.constants.Constants;
 import com.vivek.sqlstorm.dto.ColumnDTO;
 import com.vivek.sqlstorm.dto.ColumnPath;
 import com.vivek.sqlstorm.dto.DatabaseDTO;
@@ -39,10 +38,6 @@ import com.vivek.sqlstorm.dto.TableDTO;
 import com.vivek.sqlstorm.exceptions.ConnectionDetailNotFound;
 import com.vivek.sqlstorm.utils.DBHelper;
 import com.vivek.utils.MultiMap;
-import com.vivek.utils.parser.ConfigParserFactory;
-import com.vivek.utils.parser.ConfigParsingError;
-import com.vivek.utils.parser.NoParserRegistered;
-import java.io.FileNotFoundException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -64,16 +59,24 @@ import org.springframework.stereotype.Service;
 public class DatabaseMetaDataManager {
     private static final Logger logger = Logger.getLogger(DatabaseMetaDataManager.class);
 
-    private CustomRelationConfig config;
+    private volatile CustomRelationConfig config;
     private DatabaseConnectionManager connectionManager;
 
-    public DatabaseMetaDataManager(DatabaseConnectionManager connectionManager) throws FileNotFoundException, ConfigParsingError, NoParserRegistered {
-        //registering parser for CustomRelationConfig
-        ConfigParserFactory.registerParser(CustomRelationConfig.class, new CustomRelationConfigJsonParser());
-
-        this.config = ConfigParserFactory.getParser(CustomRelationConfig.class).parse(Constants.CUSTOM_RELATION_CONFIG_FILE_NAME);
-        logger.debug("Loaded Config : "+config.toString());
+    public DatabaseMetaDataManager(DatabaseConnectionManager connectionManager,
+                                   ConfigLoaderStrategy<CustomRelationConfig> customMappingConfigLoader) {
         this.connectionManager = connectionManager;
+        this.config = customMappingConfigLoader.load();
+        logger.debug("Loaded Config : " + config.toString());
+        init();
+    }
+
+    /**
+     * Hot-reload: called by DbConfigLoader's change listener when a new custom mapping
+     * config is detected. Rebuilds the metadata map (lazy DB loads will re-run on demand).
+     */
+    public synchronized void reloadCustomRelationConfig(CustomRelationConfig newConfig) {
+        logger.info("Reloading custom relation config");
+        this.config = newConfig;
         init();
     }
     
@@ -272,5 +275,9 @@ public class DatabaseMetaDataManager {
         }
         return dbmeta;
     }
-    
+
+    public CustomRelationConfig getCustomRelationConfig() {
+        return config;
+    }
+
 }

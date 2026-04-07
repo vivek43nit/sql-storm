@@ -68,10 +68,10 @@ export default function NavPanel({ onTableSelect }) {
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px 12px 20px' }}>
         {/* Group */}
         <div style={{ marginBottom: 14 }}>
-          <label style={{ display: 'block', fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', color: 'var(--color-sidebar-muted)', textTransform: 'uppercase', marginBottom: 6 }}>
+          <label htmlFor="nav-group-select" style={{ display: 'block', fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', color: 'var(--color-sidebar-muted)', textTransform: 'uppercase', marginBottom: 6 }}>
             Group
           </label>
-          <select style={selectStyle} value={selectedGroup} onChange={e => handleGroupChange(e.target.value)}>
+          <select id="nav-group-select" style={selectStyle} value={selectedGroup} onChange={e => handleGroupChange(e.target.value)}>
             <option value="">— select —</option>
             {groups.map(g => <option key={g} value={g}>{g}</option>)}
           </select>
@@ -79,10 +79,10 @@ export default function NavPanel({ onTableSelect }) {
 
         {/* Database */}
         <div style={{ marginBottom: 16 }}>
-          <label style={{ display: 'block', fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', color: 'var(--color-sidebar-muted)', textTransform: 'uppercase', marginBottom: 6 }}>
+          <label htmlFor="nav-db-select" style={{ display: 'block', fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', color: 'var(--color-sidebar-muted)', textTransform: 'uppercase', marginBottom: 6 }}>
             Database
           </label>
-          <select style={{ ...selectStyle, opacity: !selectedGroup ? 0.45 : 1 }} value={selectedDb} onChange={e => handleDbChange(e.target.value)} disabled={!selectedGroup}>
+          <select id="nav-db-select" style={{ ...selectStyle, opacity: !selectedGroup ? 0.45 : 1 }} value={selectedDb} onChange={e => handleDbChange(e.target.value)} disabled={!selectedGroup}>
             <option value="">— select —</option>
             {databases.map(d => <option key={d} value={d}>{d}</option>)}
           </select>

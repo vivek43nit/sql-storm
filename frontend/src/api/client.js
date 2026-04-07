@@ -7,6 +7,18 @@ const client = axios.create({
   withCredentials: true,
 })
 
+// Intercept 401 globally — redirect to login by reloading (App.jsx re-checks auth)
+client.interceptors.response.use(
+  res => res,
+  err => {
+    if (err.response?.status === 401) {
+      // Trigger re-auth check in App without hard reload
+      window.dispatchEvent(new CustomEvent('fkblitz:unauthorized'))
+    }
+    return Promise.reject(err)
+  }
+)
+
 export const login = (username, password) => {
   const params = new URLSearchParams()
   params.append('username', username)
@@ -58,3 +70,12 @@ export const getAdminRelations = (group, database, table) =>
 
 export const getAdminSuggestions = (group) =>
   client.get('/admin/suggestions', { params: { group } }).then(r => r.data)
+
+export const getMe = () => client.get('/me').then(r => r.data)
+
+export const getAuthConfig = () => client.get('/auth/config').then(r => r.data)
+
+export const listUsers = () => client.get('/admin/users').then(r => r.data)
+export const createUser = (data) => client.post('/admin/users', data).then(r => r.data)
+export const updateUser = (id, data) => client.put(`/admin/users/${id}`, data).then(r => r.data)
+export const deleteUser = (id) => client.delete(`/admin/users/${id}`).then(r => r.data)

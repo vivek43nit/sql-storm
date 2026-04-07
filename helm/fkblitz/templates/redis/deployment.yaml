@@ -1,0 +1,70 @@
+{{- if .Values.redis.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "fkblitz.fullname" . }}-redis
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "fkblitz.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "fkblitz.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: redis
+  template:
+    metadata:
+      labels:
+        {{- include "fkblitz.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: redis
+    spec:
+      containers:
+        - name: redis
+          image: {{ .Values.redis.internal.image }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: redis
+              containerPort: {{ .Values.redis.internal.port }}
+              protocol: TCP
+          command:
+            - redis-server
+            {{- if .Values.secret.redisPassword }}
+            - "--requirepass"
+            - "$(REDIS_PASSWORD)"
+            {{- end }}
+          {{- if .Values.secret.redisPassword }}
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fkblitz.secretName" . }}
+                  key: REDIS_PASSWORD
+          {{- end }}
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          # Redis is used purely as a cache and session store — neither requires
+          # durable persistence. emptyDir is intentional: data is ephemeral and
+          # rebuilt automatically on pod restart (sessions expire, cache warms up).
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+      volumes:
+        - name: redis-data
+          emptyDir: {}
+{{- end }}

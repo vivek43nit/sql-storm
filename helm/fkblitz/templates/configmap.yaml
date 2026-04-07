@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "fkblitz.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "fkblitz.labels" . | nindent 4 }}
+data:
+  DatabaseConnection.xml: |
+    {{- .Values.configmap.connectionXml | nindent 4 }}

@@ -5,7 +5,8 @@ import TableGrid from '../components/TableGrid'
 import ConverterPanel from '../components/ConverterPanel'
 import { executeQuery, logout } from '../api/client'
 
-export default function MainPage({ onLogout, onNavigate }) {
+export default function MainPage({ onLogout, onNavigate, user }) {
+  const isAdmin = user?.role === 'ADMIN'
   const [context, setContext] = useState(null)
   const [resultSets, setResultSets] = useState([])
   const [error, setError] = useState(null)
@@ -133,8 +134,8 @@ export default function MainPage({ onLogout, onNavigate }) {
           >
             Converter
           </button>
-          <button onClick={() => onNavigate('admin-relations')} style={topBarBtnStyle}>Relations</button>
-          <button onClick={() => onNavigate('admin-suggestions')} style={topBarBtnStyle}>Suggestions</button>
+          {isAdmin && <button onClick={() => onNavigate('admin-relations')} style={topBarBtnStyle}>Relations</button>}
+          {isAdmin && <button onClick={() => onNavigate('admin-suggestions')} style={topBarBtnStyle}>Suggestions</button>}
           <button onClick={handleLogout} style={topBarBtnStyle}>Logout</button>
         </div>
       </div>
@@ -170,6 +171,7 @@ export default function MainPage({ onLogout, onNavigate }) {
                 onAddResults={handleAddResults}
                 onReQuery={(filters, sort) => handleReQuery(i, rs.table, rs.database, filters, sort)}
                 refRowLimit={refRowLimit}
+                userRole={user?.role}
               />
             ))}
           </div>

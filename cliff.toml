@@ -1,0 +1,50 @@
+# git-cliff configuration — https://git-cliff.org
+# Parses conventional commits to generate CHANGELOG.md entries.
+
+[changelog]
+header = """
+# Changelog
+
+All notable changes to FkBlitz are documented here.
+Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+"""
+body = """
+{% if version %}\
+## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else %}\
+## [Unreleased]
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | upper_first }}
+{% for commit in commits %}
+- {% if commit.scope %}**{{ commit.scope }}**: {% endif %}\
+{{ commit.message | upper_first }} ([`{{ commit.id | truncate(length=7, end="") }}`]({{ commit.id }}))\
+{% endfor %}
+{% endfor %}\n
+"""
+trim = true
+footer = ""
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+split_commits = false
+commit_parsers = [
+  { message = "^feat",     group = "Added" },
+  { message = "^fix",      group = "Fixed" },
+  { message = "^perf",     group = "Performance" },
+  { message = "^refactor", group = "Refactored" },
+  { message = "^test",     group = "Testing",   skip = true },
+  { message = "^ci",       group = "CI/CD",     skip = true },
+  { message = "^chore",    group = "Chore",     skip = true },
+  { message = "^docs",     group = "Docs" },
+  { message = "^security", group = "Security" },
+  { body = ".*BREAKING.*", group = "Breaking Changes" },
+]
+protect_breaking_commits = true
+filter_commits = true
+tag_pattern = "v[0-9]+\\.[0-9]+\\.[0-9]+"
+skip_tags = "v0\\.1\\.0-beta\\.1"
+ignore_tags = ""
+topo_order = false
+sort_commits = "newest"

@@ -1,0 +1,3 @@
+<!-- Empty connection list for tests — no real DB required -->
+<CONNECTIONS CONNECTION_EXPIRY_TIME="3600000" MAX_RETRY_COUNT="1">
+</CONNECTIONS>

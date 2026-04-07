@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+  <!-- ── Human-readable console output (default / dev) ──────────────────── -->
+  <appender name="CONSOLE_PLAIN" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%d{HH:mm:ss.SSS} %highlight(%-5level) [%X{requestId:---------}] %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <!-- ── Structured JSON output (prod profile) ──────────────────────────── -->
+  <appender name="CONSOLE_JSON" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+      <!-- Inject static fields on every log line -->
+      <customFields>{"service":"fkblitz"}</customFields>
+      <!-- Expose MDC requestId as a top-level field -->
+      <includeMdcKeyName>requestId</includeMdcKeyName>
+      <!-- Suppress noisy Logstash-added fields we don't need -->
+      <fieldNames>
+        <version>[ignore]</version>
+        <levelValue>[ignore]</levelValue>
+      </fieldNames>
+    </encoder>
+  </appender>
+
+  <!-- ── Profile-based root logger ─────────────────────────────────────── -->
+  <springProfile name="prod">
+    <root level="INFO">
+      <appender-ref ref="CONSOLE_JSON"/>
+    </root>
+  </springProfile>
+
+  <springProfile name="!prod">
+    <root level="INFO">
+      <appender-ref ref="CONSOLE_PLAIN"/>
+    </root>
+  </springProfile>
+
+</configuration>

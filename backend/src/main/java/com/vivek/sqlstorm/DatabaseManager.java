@@ -23,6 +23,7 @@
  */
 package com.vivek.sqlstorm;
 
+import com.vivek.sqlstorm.config.customrelation.CustomRelationConfig;
 import com.vivek.sqlstorm.connection.DatabaseConnectionManager;
 import com.vivek.sqlstorm.dto.DatabaseDTO;
 import com.vivek.sqlstorm.dto.TableDTO;
@@ -83,5 +84,9 @@ public class DatabaseManager {
     
     public DatabaseDTO getMetaData(String group, String database) throws ConnectionDetailNotFound, SQLException, ClassNotFoundException{
         return metaDataManager.getMetaData(group, database);
+    }
+
+    public CustomRelationConfig getCustomRelationConfig() {
+        return metaDataManager.getCustomRelationConfig();
     }
 }

@@ -1,0 +1,14 @@
+apiVersion: v2
+name: fkblitz
+description: Browser-based MySQL/MariaDB client with FK navigation, RBAC, and observability
+type: application
+version: 0.1.0
+appVersion: "2.0.0"
+keywords:
+  - mysql
+  - mariadb
+  - database
+  - sql-client
+home: https://github.com/vivek43nit/sql-storm
+maintainers:
+  - name: Vivek Kumar

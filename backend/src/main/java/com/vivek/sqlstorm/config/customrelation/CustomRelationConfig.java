@@ -25,7 +25,10 @@ package com.vivek.sqlstorm.config.customrelation;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -34,6 +37,39 @@ import java.util.Map;
  */
 @Data
 @AllArgsConstructor
+@NoArgsConstructor
 public class CustomRelationConfig {
     Map<String, DatabaseConfig> databases;
+
+    /**
+     * Columns whose values are masked for users without SENSITIVE_DATA_RO permission.
+     * Defined in custom_mapping.json under "sensitiveColumns".
+     * Wildcard "*" for database matches any database.
+     */
+    private List<SensitiveColumn> sensitiveColumns = new ArrayList<>();
+
+    public CustomRelationConfig(Map<String, DatabaseConfig> databases) {
+        this.databases = databases;
+    }
+
+    @Data
+    public static class SensitiveColumn {
+        /** Database name, or "*" to match all databases. */
+        private String database;
+        private String table;
+        private String column;
+    }
+
+    /**
+     * Returns true if the given database.table.column is marked as sensitive.
+     */
+    public boolean isSensitive(String database, String table, String column) {
+        for (SensitiveColumn sc : sensitiveColumns) {
+            boolean dbMatch = "*".equals(sc.getDatabase()) || sc.getDatabase().equals(database);
+            if (dbMatch && sc.getTable().equals(table) && sc.getColumn().equals(column)) {
+                return true;
+            }
+        }
+        return false;
+    }
 }
