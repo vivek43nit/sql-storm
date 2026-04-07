@@ -16,6 +16,13 @@ spring:
     # explicitly in RedisConfig when fkblitz.redis.enabled=true
     store-type: none
     timeout: 30m
+  autoconfigure:
+    exclude:
+      # Suppress the default LettuceConnectionFactory — RedisConfig creates its own
+      # when fkblitz.redis.enabled=true; without this exclude the auto-config tries
+      # to connect to Redis on startup even when Redis is disabled.
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration
 
   # JPA / H2 for auth user store (default: embedded H2 in-memory)
   datasource:

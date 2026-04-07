@@ -311,7 +311,15 @@ Enable JSON logging for production log aggregators (ELK, Loki, etc.):
 SPRING_PROFILES_ACTIVE=prod
 ```
 
-Every log line includes `timestamp`, `level`, `service`, `version`, `requestId`, and `message`. The `requestId` is a per-request UUID also returned in the `X-Request-Id` response header.
+Every log line includes `timestamp`, `level`, `service`, `version`, `requestId`, `trace_id`, `span_id`, and `message`.
+
+| Field | Description |
+|-------|-------------|
+| `requestId` | Per-request UUID, also returned in `X-Request-Id` response header |
+| `trace_id` | 32-char hex trace ID. Extracted from incoming W3C `traceparent` header, or generated if absent |
+| `span_id` | 16-char hex span ID, generated fresh per request |
+
+The outbound `traceparent` response header (`00-{traceId}-{spanId}-00`) allows downstream services to continue the trace.
 
 In dev/staging (no `prod` profile), logs are human-readable console output.
 

@@ -44,7 +44,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
   protected void doFilterInternal(HttpServletRequest request,
                                   HttpServletResponse response,
                                   FilterChain chain) throws ServletException, IOException {
-    String path = request.getServletPath();
+    String path = request.getRequestURI();
     String method = request.getMethod();
 
     Integer limit = resolveLimit(path, method);
