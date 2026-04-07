@@ -3,6 +3,7 @@ package com.vivek.controller;
 import com.vivek.sqlstorm.DatabaseManager;
 import com.vivek.sqlstorm.config.customrelation.CustomRelationConfig;
 import com.vivek.sqlstorm.dto.ColumnDTO;
+import com.vivek.sqlstorm.dto.ColumnPath;
 import com.vivek.sqlstorm.dto.DatabaseDTO;
 import com.vivek.sqlstorm.dto.TableDTO;
 import com.vivek.sqlstorm.exceptions.ConnectionDetailNotFound;
@@ -211,6 +212,43 @@ class QueryControllerTest {
         .andExpect(content().string("[]"));
   }
 
+  @Test
+  @WithMockUser
+  void getDeReferences_whenReferToExists_returnsResults() throws Exception {
+    DatabaseDTO mockDb = mock(DatabaseDTO.class);
+    TableDTO mockTable = mock(TableDTO.class);
+    TableDTO refTable = mock(TableDTO.class);
+    ColumnDTO mockColumn = mock(ColumnDTO.class);
+    Connection conn = mock(Connection.class);
+    PreparedStatement ps = mock(PreparedStatement.class);
+    ResultSet rs = mock(ResultSet.class);
+    ResultSetMetaData meta = mock(ResultSetMetaData.class);
+
+    ColumnPath referTo = new ColumnPath("db1", "users", "id");
+
+    given(databaseManager.getMetaData("g1", "db1")).willReturn(mockDb);
+    given(mockDb.getTableMetaData("orders")).willReturn(mockTable);
+    given(mockTable.getColumnMetaData("user_id")).willReturn(mockColumn);
+    given(mockColumn.getReferTo()).willReturn(List.of(referTo));
+    given(mockDb.getTableMetaData("users")).willReturn(refTable);
+    given(refTable.getPrimaryKey()).willReturn(null);
+    given(databaseManager.getConnection("g1", "db1")).willReturn(conn);
+    given(databaseManager.isUpdatableConnection("g1", "db1")).willReturn(false);
+    given(databaseManager.isDeletableConnection("g1", "db1")).willReturn(false);
+    given(conn.prepareStatement(anyString())).willReturn(ps);
+    given(ps.executeQuery()).willReturn(rs);
+    given(rs.getMetaData()).willReturn(meta);
+    given(meta.getColumnCount()).willReturn(0);
+    given(rs.next()).willReturn(false);
+    given(databaseManager.getCustomRelationConfig()).willReturn(new CustomRelationConfig(Map.of()));
+
+    mvc.perform(get("/api/dereferences")
+            .param("group", "g1").param("database", "db1")
+            .param("table", "orders").param("column", "user_id")
+            .param("row", "{\"user_id\":42}"))
+        .andExpect(status().isOk());
+  }
+
   // ── GET /api/traceRow ─────────────────────────────────────────────────────
 
   @Test
@@ -228,5 +266,51 @@ class QueryControllerTest {
             .param("table", "t1").param("row", "{\"id\":1}"))
         .andExpect(status().isOk())
         .andExpect(content().string("[]"));
+  }
+
+  @Test
+  @WithMockUser
+  void traceRow_whenColumnHasReferTo_callsDeReferences() throws Exception {
+    DatabaseDTO mockDb = mock(DatabaseDTO.class);
+    TableDTO mockTable = mock(TableDTO.class);
+    TableDTO refTable = mock(TableDTO.class);
+    ColumnDTO col = mock(ColumnDTO.class);
+    ColumnDTO col2 = mock(ColumnDTO.class);
+    ColumnDTO refCol = mock(ColumnDTO.class);
+    Connection conn = mock(Connection.class);
+    PreparedStatement ps = mock(PreparedStatement.class);
+    ResultSet rs = mock(ResultSet.class);
+    ResultSetMetaData meta = mock(ResultSetMetaData.class);
+
+    ColumnPath referTo = new ColumnPath("db1", "users", "id");
+
+    // col has referTo, col2 has no relations
+    given(col.getName()).willReturn("user_id");
+    given(col.getReferTo()).willReturn(List.of(referTo));
+    given(col.getReferencedBy()).willReturn(Collections.emptyList());
+    given(col2.getReferTo()).willReturn(Collections.emptyList());
+    given(col2.getReferencedBy()).willReturn(Collections.emptyList());
+
+    given(databaseManager.getMetaData("g1", "db1")).willReturn(mockDb);
+    given(mockDb.getTableMetaData("orders")).willReturn(mockTable);
+    given(mockTable.getColumns()).willReturn(List.of(col, col2));
+    given(mockTable.getColumnMetaData("user_id")).willReturn(refCol);
+    given(refCol.getReferTo()).willReturn(List.of(referTo));
+    given(mockDb.getTableMetaData("users")).willReturn(refTable);
+    given(refTable.getPrimaryKey()).willReturn(null);
+    given(databaseManager.getConnection("g1", "db1")).willReturn(conn);
+    given(databaseManager.isUpdatableConnection("g1", "db1")).willReturn(false);
+    given(databaseManager.isDeletableConnection("g1", "db1")).willReturn(false);
+    given(conn.prepareStatement(anyString())).willReturn(ps);
+    given(ps.executeQuery()).willReturn(rs);
+    given(rs.getMetaData()).willReturn(meta);
+    given(meta.getColumnCount()).willReturn(0);
+    given(rs.next()).willReturn(false);
+    given(databaseManager.getCustomRelationConfig()).willReturn(new CustomRelationConfig(Map.of()));
+
+    mvc.perform(get("/api/trace")
+            .param("group", "g1").param("database", "db1")
+            .param("table", "orders").param("row", "{\"user_id\":42}"))
+        .andExpect(status().isOk());
   }
 }
