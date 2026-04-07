@@ -1,21 +1,21 @@
-# SQL-Storm Documentation
+# FkBlitz Documentation
 
 ## Overview
 
-SQL-Storm is a web-based MySQL/MariaDB database browser and client. It allows users to browse multiple databases across environments, navigate foreign key relationships, view table metadata, execute queries, and optionally edit or delete rows.
+FkBlitz is a self-hosted, browser-based MySQL/MariaDB client built for navigating relational data by following foreign key relationships. It consists of a **Spring Boot 3 REST API** (backend) and a **React 18 SPA** (frontend).
 
 ---
 
 ## Table of Contents
 
 1. [Architecture](#architecture)
-2. [Module Breakdown](#module-breakdown)
-3. [Configuration](#configuration)
-4. [Data Flow](#data-flow)
-5. [API / Request Objects](#api--request-objects)
-6. [Data Type Handlers](#data-type-handlers)
-7. [Security](#security)
-8. [Frontend Pages](#frontend-pages)
+2. [Backend Modules](#backend-modules)
+3. [REST API](#rest-api)
+4. [Frontend Components](#frontend-components)
+5. [Configuration](#configuration)
+6. [Data Flow](#data-flow)
+7. [Data Type Handlers](#data-type-handlers)
+8. [Security](#security)
 9. [Dependencies](#dependencies)
 10. [Build & Deployment](#build--deployment)
 
@@ -24,70 +24,117 @@ SQL-Storm is a web-based MySQL/MariaDB database browser and client. It allows us
 ## Architecture
 
 ```
-Browser (JSP + JS)
-       |
-  Servlet/JSP Layer  (webapp/mysql/*.jsp)
-       |
-  DatabaseManager  (Facade)
-      /         \
-DatabaseConnection  DatabaseMetaDataManager
-    Manager
-       |                  |
-  JDBC Connections   Metadata Cache
-  (per group/db)    (tables, columns, relations)
-       |
-  MySQL / MariaDB
+Browser (React SPA)
+        │  HTTP / JSON
+┌───────▼──────────────────────────────────────────────┐
+│           Spring Boot 3 (port 9044, /fkblitz)        │
+│                                                      │
+│  Spring Security ──► REST Controllers                │
+│                         │                            │
+│                   DatabaseManager (Facade)           │
+│                    /              \                  │
+│   DatabaseConnectionManager   DatabaseMetaDataManager│
+│          │                           │               │
+│    JDBC Connections            Metadata Cache        │
+│    (per group/db)         (tables, columns, FKs)     │
+└───────────────────────────────┬──────────────────────┘
+                                │ JDBC
+                    ┌───────────▼───────────┐
+                    │  MySQL / MariaDB       │
+                    └───────────────────────┘
 ```
 
-SQL-Storm uses a layered architecture:
-
-- **Presentation Layer**: JSP pages + JavaScript/CSS served at `/sql-storm/mysql/`
-- **Business Logic**: `DatabaseManager` as the central facade, backed by `DatabaseConnectionManager` and `DatabaseMetaDataManager`
-- **Configuration Layer**: XML and JSON config files parsed via a pluggable parser framework
-- **Data Access**: Direct JDBC to MySQL/MariaDB with metadata introspection via `DatabaseMetaData`
+- **Presentation**: React SPA served from `frontend/` (dev: Vite on `:5173` with proxy; prod: static files embedded in the Spring Boot JAR)
+- **API layer**: Spring MVC REST controllers under `/fkblitz/api/`
+- **Business logic**: `DatabaseManager` facade, backed by connection and metadata managers
+- **Config**: XML/JSON files resolved from `/etc/fkblitz/`, `~/.fkblitz/`, or classpath
 
 ---
 
-## Module Breakdown
+## Backend Modules
+
+### `com.vivek.SqlStormApplication`
+
+Spring Boot entry point. Starts the embedded Tomcat on port `9044` with context path `/fkblitz`.
+
+---
+
+### `com.vivek.controller`
+
+#### `MetaDataController`
+
+Serves schema metadata to the frontend.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/groups` | Returns list of connection group names |
+| GET | `/api/databases?group=` | Returns databases for a group |
+| GET | `/api/tables?group=&database=` | Returns tables with PK info |
+| GET | `/api/admin/relations?group=&database=&table=` | Returns FK relations for a table |
+| GET | `/api/admin/suggestions?group=` | Returns suggested custom relations |
+
+#### `ExecuteController`
+
+Handles query execution and FK navigation.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/execute?group=` | Execute a SQL query; returns `ResultSetDTO` |
+| GET | `/api/references` | Fetch rows referenced by a FK value (referTo) |
+| GET | `/api/dereferences` | Fetch rows that reference a given row (referencedBy) |
+| GET | `/api/trace` | Trace all FK relationships for a row |
+
+#### `RowMutationController`
+
+Handles CRUD operations. Only active when the connection has `UPDATABLE`/`DELETABLE` set.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/row/add?group=&database=&table=` | Insert a new row |
+| PUT | `/api/row/edit?group=&database=&table=&pk=&pkValue=` | Update an existing row |
+| DELETE | `/api/row?group=&database=&table=&pk=&pkValue=` | Delete a row |
+
+---
 
 ### `com.vivek.sqlstorm`
 
 #### `DatabaseManager`
-The main facade singleton. All external code goes through this class.
+
+Central singleton facade. All controllers call through here.
 
 | Method | Description |
 |--------|-------------|
-| `getConnection(group, db)` | Returns a live JDBC connection for the given group and database |
-| `getMetaData(group, db)` | Returns cached `DatabaseDTO` for the given group and database |
-| `getTables(group, db)` | Returns all tables for a database |
-| `isUpdatableConnection(group, db)` | Returns true if rows can be updated |
-| `isDeletableConnection(group, db)` | Returns true if rows can be deleted |
+| `getConnection(group, db)` | Returns a live JDBC connection |
+| `getMetaData(group, db)` | Returns cached `DatabaseDTO` |
+| `getTables(group, db)` | Returns all tables |
+| `isUpdatableConnection(group, db)` | True if row edits are permitted |
+| `isDeletableConnection(group, db)` | True if row deletes are permitted |
 
 ---
 
 ### `com.vivek.sqlstorm.connection`
 
 #### `DatabaseConnectionManager`
-Manages JDBC connection pooling and lifecycle.
 
-- Connections are keyed by `(group, dbName)`.
-- Connections are reused until they expire (`CONNECTION_EXPIRY_TIME`, default 3,600,000 ms = 1 hour).
-- On expiry or failure, a new connection is created up to `MAX_RETRY_COUNT` (default 10) times.
-- Login timeout per attempt: 10 seconds.
+Manages JDBC connection lifecycle.
 
-Inner class `ConnectionInfo` tracks creation time and connection validity.
+- Connections keyed by `(group, dbName)`
+- Reused until `CONNECTION_EXPIRY_TIME` ms elapses (default 1 hour)
+- On expiry or failure, reconnects up to `MAX_RETRY_COUNT` times (default 10)
+- Login timeout: 10 seconds per attempt
 
 ---
 
 ### `com.vivek.sqlstorm.metadata`
 
 #### `DatabaseMetaDataManager`
-Singleton that manages and caches database schema metadata.
 
-- On startup, initializes empty `DatabaseDTO` objects per connection.
-- On first access, calls `lazyLoadFromDb()` to fetch tables, columns, indexes, and foreign keys via JDBC `DatabaseMetaData`.
-- Merges custom relationships from `custom_mapping.json`.
-- Builds bidirectional relationship graph: each column tracks `referTo` (foreign keys pointing out) and `referencedBy` (foreign keys pointing in).
+Caches schema metadata per database.
+
+- Lazily loaded on first access via `lazyLoadFromDb()`
+- Fetches tables, columns, indexes, and foreign keys via JDBC `DatabaseMetaData`
+- Merges custom relations from `custom_mapping.json`
+- Builds bidirectional relationship graph: `ColumnDTO.referTo` and `ColumnDTO.referencedBy`
 
 ---
 
@@ -97,17 +144,17 @@ Singleton that manages and caches database schema metadata.
 
 | Class | Description |
 |-------|-------------|
-| `ConnectionConfig` | Holds list of `ConnectionDTO` objects plus expiry and retry settings |
-| `ConnectionDTO` | One database connection: driver, URL, credentials, group, dbName, updatable/deletable flags, row limit |
-| `DatabaseConfigXmlParser` | Parses `DatabaseConnection.xml` using JDOM2 |
+| `ConnectionConfig` | List of `ConnectionDTO` objects plus expiry/retry settings |
+| `ConnectionDTO` | One database connection: driver, URL, credentials, flags |
+| `DatabaseConfigXmlParser` | Parses `DatabaseConnection.xml` using JDK built-in XML |
 | `DatabaseConfigJsonParser` | Parses `DatabaseConnection.json` |
 
 #### Custom Relation Configuration
 
 | Class | Description |
 |-------|-------------|
-| `CustomRelationConfig` | Maps database names to `DatabaseConfig` objects |
-| `DatabaseConfig` | Per-database: relations list, mapping tables, auto-resolve columns |
+| `CustomRelationConfig` | Maps database names → `DatabaseConfig` |
+| `DatabaseConfig` | Relations list, mapping tables, auto-resolve columns per database |
 | `CustomRelationConfigJsonParser` | Parses `custom_mapping.json` |
 
 ---
@@ -116,38 +163,31 @@ Singleton that manages and caches database schema metadata.
 
 | DTO | Key Fields |
 |-----|------------|
-| `DatabaseDTO` | `group`, `dbName`, `tables` (map), loaded flag |
+| `DatabaseDTO` | `group`, `dbName`, `tables` (map), `loaded` flag |
 | `TableDTO` | `tableName`, `columns` (ordered map), `primaryKey`, `remark` |
-| `ColumnDTO` | `name`, `dataType`, `size`, `nullable`, `indexed`, `primaryKey`, `unique`, `referTo`, `referencedBy` |
+| `ColumnDTO` | `name`, `dataType`, `nullable`, `indexed`, `primaryKey`, `referTo`, `referencedBy` |
 | `ReferenceDTO` | `db`, `table`, `column`, `refDb`, `refTable`, `refColumn`, `conditions`, `source` |
-| `ColumnPath` | `database`, `table`, `column`, `conditions`, `source` — produces `db.table.column` string |
-| `IndexInfo` | `columnName`, `primaryKey`, `unique` |
+| `ColumnPath` | `database.table.column` qualified reference with conditions and source |
 | `MappingTableDto` | `type` (ONE_TO_ONE/ONE_TO_MANY/MANY_TO_MANY), `from`, `to`, `includeSelf` |
-| `SessionDTO` | `group` — holds session group info |
-| `ExecuteRequest` | `query`, `queryType` (S/D/U), `database`, `info`, `append`, `relation` |
-| `GetRelationsRequest` | `database`, `table`, `column`, `data`, `append`, `includeSelf`, `refRowLimit` (default 100) |
+| `ResultSetDTO` | Query results: `columns`, `rows`, `info`, `relation`, `primaryKey` |
+| `ExecuteRequest` | `query`, `queryType` (S/D/U), `database`, `info`, `relation` |
 
 ---
 
 ### `com.vivek.sqlstorm.utils`
 
 #### `DBHelper`
-JDBC utility class with static methods:
+
+JDBC utility with static methods:
 
 | Method | Description |
 |--------|-------------|
-| `getTables(conn)` | Returns all table names |
-| `getColumns(conn, table)` | Returns column metadata for a table |
-| `getAllIndexedColumns(conn, table)` | Returns index information for a table |
-| `getAllForeignKeys(conn, table)` | Returns foreign key constraints |
-| `isReferToConditionMatch(conditions, data)` | Validates conditions against a row's data |
-| `getWhereQueryFromConditions(conditions)` | Builds SQL WHERE clause from conditions map |
-| `getExecuteRequestsForReferedByReq(req, metaData)` | Generates SQL queries to fetch related rows |
-
-`getExecuteRequestsForReferedByReq()` handles three cases:
-1. Simple foreign key navigation
-2. Mapping table (junction) navigation for many-to-many
-3. Auto-resolve column navigation
+| `getTables(conn)` | All table names |
+| `getColumns(conn, table)` | Column metadata |
+| `getAllIndexedColumns(conn, table)` | Index information |
+| `getAllForeignKeys(conn, table)` | FK constraints |
+| `isReferToConditionMatch(conditions, data)` | Validates row against conditions |
+| `getExecuteRequestsForReferedByReq(req, metaData)` | Generates SQL for reverse FK navigation |
 
 ---
 
@@ -155,102 +195,148 @@ JDBC utility class with static methods:
 
 | Class | Description |
 |-------|-------------|
-| `DataManager` | Registry; maps data type names to `DataHandler` implementations |
-| `DataHandler` | Interface: `convert(value)` |
-| `IpDataHandler` | Converts `long` integer to dotted IPv4 (e.g., `2130706433` → `127.0.0.1`) |
-| `ShortDateDataHandler` | Converts epoch ms to `dd MMM yyyy` |
-| `LongDateDataHandler` | Converts epoch ms to `dd MMM yyyy HH:mm:ss` |
+| `DataManager` | Registry mapping type names → `DataHandler` implementations |
+| `DataHandler` | Interface: `String convert(String value)` |
+| `IpDataHandler` | `long` → dotted IPv4 (e.g., `2130706433` → `127.0.0.1`) |
+| `ShortDateDataHandler` | epoch ms → `dd MMM yyyy` |
+| `LongDateDataHandler` | epoch ms → `dd MMM yyyy HH:mm:ss` |
 
 ---
 
 ### `com.vivek.utils`
 
 #### `ConfigParserFactory`
-Thread-safe factory (uses `ConcurrentHashMap`). Parsers are registered by class type. `getParser(Class)` throws `NoParserRegistered` if none is registered.
+
+Thread-safe factory (`ConcurrentHashMap`). Parsers registered by target class type.
 
 #### `ConfigParser<T>`
+
 Wraps multiple `ConfigParserInterface` instances keyed by file extension. On `parse()`:
-1. Looks for config file in: `/etc/sql-storm/`, `~/sql-storm/`, `~/`, classpath resources
-2. Tries each registered extension in order
+
+1. Resolves file via `ResourceFinder` (see priority order below)
+2. Tries each registered extension
 3. Caches result after first successful parse
 
-#### `ResorceFinder`
-Resolves config file path given a filename. Priority:
-1. `/etc/sql-storm/<filename>`
-2. `~/.sql-storm/<filename>` (i.e., `~/sql-storm/.`)
+#### `ResourceFinder`
+
+Config file resolution order:
+
+1. `/etc/fkblitz/<filename>`
+2. `~/.fkblitz/<filename>`
 3. `~/<filename>`
 4. Classpath resource `<filename>`
 
 ---
 
-### `com.vivek.filter`
+## REST API
 
-#### `SessionFilter`
-Optional servlet filter for session-based access control. Configurable via `web.xml` init params:
+### Authentication
 
-| Param | Description |
-|-------|-------------|
-| `loginUrl` | Redirect target for unauthenticated requests |
-| `sessionAttributeName` | Session attribute to check |
-| `loginAllowedFrom` | IP or host allowed to access login page |
-| `loginSubmitUrl` | URL for login form submission |
+All endpoints except `/api/login` require an active session. Login via:
 
-Currently disabled in `web.xml` (commented out).
+```
+POST /fkblitz/api/login
+Content-Type: application/x-www-form-urlencoded
+
+username=admin&password=changeme
+```
+
+Returns `{"status":"ok","user":"admin"}` on success, `{"error":"Invalid credentials"}` on failure.
+
+Logout:
+```
+POST /fkblitz/api/logout
+```
+
+### Response Format
+
+All endpoints return JSON. Errors return:
+
+```json
+{"error": "message"}
+```
+
+Results from `/api/execute`, `/api/references`, `/api/dereferences`, `/api/trace` return a list of `ResultSetDTO`:
+
+```json
+[
+  {
+    "info": "fkblitz-test.orders",
+    "relation": "self",
+    "primaryKey": "id",
+    "columns": ["id", "customer_id", "status", "total"],
+    "rows": [
+      {"id": "1", "customer_id": "1", "status": "delivered", "total": "1339.98"}
+    ]
+  }
+]
+```
+
+---
+
+## Frontend Components
+
+| File | Description |
+|------|-------------|
+| `App.jsx` | Root component — session check, login gate, routing |
+| `pages/LoginPage.jsx` | Login form |
+| `pages/MainPage.jsx` | Main layout: sidebar + query bar + result grid |
+| `pages/AdminRelationsPage.jsx` | View FK relations per table |
+| `pages/AdminSuggestionsPage.jsx` | View suggested custom relations |
+| `components/NavPanel.jsx` | Sidebar: group/database/table selectors |
+| `components/TableGrid.jsx` | Result table with FK click-through, ↙ back-refs, filters, sort, CRUD buttons |
+| `components/RowModal.jsx` | Add / Edit / Delete modal form |
+| `components/ConverterPanel.jsx` | IP ↔ long, date ↔ epoch, live clock |
+| `components/QueryBar.jsx` | SQL input, Run button, range/ref-limit controls |
+| `api/client.js` | Axios instance with all API calls |
+
+### FK Navigation Flow (TableGrid)
+
+1. `↗` marker on a column header → column has outbound FKs
+2. Click a cell value in that column → calls `GET /api/references` → renders referenced row in a new result panel
+3. `↙` marker on a column header → column is referenced by other tables
+4. Click `↙` button on a row → calls `GET /api/dereferences` → renders all referencing rows grouped by table
+5. Click `Trace` on a row → calls `GET /api/trace` → expands the full FK chain
 
 ---
 
 ## Configuration
 
-### Database Connections — `DatabaseConnection.xml`
-
-Located at (in search order):
-1. `/etc/sql-storm/DatabaseConnection.xml`
-2. `~/.sql-storm/DatabaseConnection.xml`
-3. `~/DatabaseConnection.xml`
-4. Classpath `resources/DatabaseConnection.xml`
+### `DatabaseConnection.xml`
 
 ```xml
 <CONNECTIONS CONNECTION_EXPIRY_TIME="3600000" MAX_RETRY_COUNT="10">
     <CONNECTION
         ID="1"
-        GROUP="localhost"
+        GROUP="production"
         DB_NAME="mydb"
-        DRIVER_CLASS_NAME="com.mysql.jdbc.Driver"
-        DATABASE_URL="jdbc:mysql://localhost:3306/mydb"
-        USER_NAME="root"
-        PASSWORD="secret"
-        UPDATABLE="true"
+        DRIVER_CLASS_NAME="com.mysql.cj.jdbc.Driver"
+        DATABASE_URL="jdbc:mysql://localhost:3306/mydb?useInformationSchema=true"
+        USER_NAME="dbuser"
+        PASSWORD="dbpass"
+        UPDATABLE="false"
         DELETABLE="false"
         NON_INDEXED_SEARCHABLE_ROW_LIMIT="10000"
     />
 </CONNECTIONS>
 ```
 
-Also supports JSON format (`DatabaseConnection.json`):
-```json
-{
-  "connection_expiry_time": 3600000,
-  "max_retry_count": 10,
-  "connections": [
-    {
-      "id": "1",
-      "group": "localhost",
-      "db_name": "mydb",
-      "driver_class_name": "com.mysql.jdbc.Driver",
-      "database_url": "jdbc:mysql://localhost:3306/mydb",
-      "user_name": "root",
-      "password": "secret",
-      "updatable": true,
-      "deletable": false,
-      "non_indexed_searchable_row_limit": 10000
-    }
-  ]
-}
-```
+| Attribute | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `CONNECTION_EXPIRY_TIME` | No | 3600000 | Connection TTL (ms) |
+| `MAX_RETRY_COUNT` | No | 10 | Reconnect attempts |
+| `ID` | Yes | — | Unique identifier |
+| `GROUP` | Yes | — | Environment label |
+| `DB_NAME` | Yes | — | Database display name |
+| `DRIVER_CLASS_NAME` | Yes | — | JDBC driver class |
+| `DATABASE_URL` | Yes | — | JDBC URL (`useInformationSchema=true` required for FK discovery) |
+| `USER_NAME` | Yes | — | Database username |
+| `PASSWORD` | Yes | — | Database password |
+| `UPDATABLE` | No | false | Enable Add/Edit UI |
+| `DELETABLE` | No | false | Enable Delete UI |
+| `NON_INDEXED_SEARCHABLE_ROW_LIMIT` | No | — | Max rows for unindexed scans |
 
-### Custom Relationships — `custom_mapping.json`
-
-Located at the same search paths as the connection config.
+### `custom_mapping.json`
 
 ```json
 {
@@ -273,31 +359,27 @@ Located at the same search paths as the connection config.
           "to": "tag_id",
           "include-self": true
         }
-      },
-      "auto_resolve": {
-        "orders": ["customer_id", "product_id"]
       }
     }
   }
 }
 ```
 
-**Relation types for mapping tables:**
+### `application.yml`
 
-| Type | Description |
-|------|-------------|
-| `ONE_TO_ONE` | Direct 1:1 link through junction table |
-| `ONE_TO_MANY` | One side links to many through junction |
-| `MANY_TO_MANY` | Both sides are multi-valued |
+```yaml
+server:
+  port: 9044
+  servlet:
+    context-path: /fkblitz
 
-### Logging — `log4j.properties`
-
-```properties
-log4j.rootLogger=INFO, A1
-log4j.appender.A1=org.apache.log4j.FileAppender
-log4j.appender.A1.File=/var/log/sql-storm.log
-log4j.appender.A1.layout=org.apache.log4j.PatternLayout
-log4j.appender.A1.layout.ConversionPattern=%d{DATE} %-5p %F|%L : %m%n
+spring:
+  security:
+    user:
+      name: admin
+      password: changeme
+  session:
+    timeout: 30m
 ```
 
 ---
@@ -306,165 +388,135 @@ log4j.appender.A1.layout.ConversionPattern=%d{DATE} %-5p %F|%L : %m%n
 
 ### Startup
 
-1. `DatabaseManager` is instantiated (singleton).
-2. `DatabaseConnectionManager` reads `DatabaseConnection.xml` or `.json`.
-3. `DatabaseMetaDataManager` reads `custom_mapping.json` and builds empty `DatabaseDTO` objects per connection.
+1. Spring Boot starts; `DatabaseManager` singleton initialises.
+2. `DatabaseConnectionManager` reads `DatabaseConnection.xml`.
+3. `DatabaseMetaDataManager` reads `custom_mapping.json`; creates empty `DatabaseDTO` per connection.
 
-### First Metadata Access (Lazy Load)
+### First Table Access (Lazy Load)
 
-1. `DatabaseMetaDataManager.getMetaData(group, db)` is called.
-2. If not yet loaded, `lazyLoadFromDb()` runs:
+1. Frontend calls `GET /api/tables?group=X&database=Y`.
+2. `DatabaseMetaDataManager.getMetaData()` runs `lazyLoadFromDb()`:
    - Fetches table list via `DatabaseMetaData.getTables()`
-   - For each table: fetches columns, indexes, and foreign keys
-   - Builds `TableDTO` and `ColumnDTO` objects
-   - Merges custom relations from config
-   - Builds bidirectional graph: `ColumnDTO.referTo` and `ColumnDTO.referencedBy`
+   - Per table: fetches columns, indexes, FKs
+   - Merges custom relations
+   - Builds bidirectional FK graph
+3. Result cached for all subsequent requests.
 
-### Query Execution
+### FK Navigation
 
-1. User submits an `ExecuteRequest` with SQL and metadata.
-2. For relationship navigation, user submits a `GetRelationsRequest`.
-3. `DBHelper.getExecuteRequestsForReferedByReq()` generates SQL:
-   - For direct FK: `SELECT * FROM ref_table WHERE ref_col = ? [AND conditions] LIMIT n`
-   - For mapping tables: nested SELECT through junction
-4. Each generated `ExecuteRequest` is executed in sequence.
-5. Results are returned to JSP for rendering.
+1. User clicks a `↗` FK value in `TableGrid`.
+2. Frontend calls `GET /api/references?group=&database=&table=&column=&row=`.
+3. Backend looks up `ColumnDTO.referTo`, generates `SELECT * FROM refTable WHERE refCol = ? LIMIT n`.
+4. Returns `ResultSetDTO` list; frontend renders new result panel below.
 
-### Data Rendering
+### Row Mutation
 
-- Column values are passed through `DataManager.convert(type, value)`.
-- Registered handlers convert IP integers and epoch timestamps to human-readable strings.
-
----
-
-## API / Request Objects
-
-### `ExecuteRequest`
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `query` | `String` | SQL statement |
-| `queryType` | `String` | `S` (select), `D` (delete), `U` (update) |
-| `database` | `String` | Target database name |
-| `info` | `String` | Display label for result set |
-| `append` | `boolean` | Append result to existing output |
-| `relation` | `String` | One of `self`, `referTo`, `referedBy` |
-
-### `GetRelationsRequest`
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `database` | `String` | Source database |
-| `table` | `String` | Source table |
-| `column` | `String` | Source column |
-| `data` | `JSONObject` | Row data (column → value map) |
-| `append` | `boolean` | Append mode |
-| `includeSelf` | `boolean` | Include source row in results |
-| `refRowLimit` | `int` | Max related rows to fetch (default 100) |
+1. User clicks Edit/Delete/Add Row → `RowModal` opens.
+2. On confirm: `PUT /api/row/edit` or `DELETE /api/row` or `POST /api/row/add`.
+3. Backend verifies `isUpdatableConnection()`/`isDeletableConnection()` before executing.
 
 ---
 
 ## Data Type Handlers
 
-Custom handlers extend `DataHandler` and are registered in `DataManager` by type name string.
+Custom rendering for specific column types. Register in `DataManager` by type name string.
 
-| Handler | Trigger Type Name | Conversion |
-|---------|-------------------|------------|
-| `IpDataHandler` | `ip` | `long` integer → `"a.b.c.d"` IPv4 string |
+| Handler | Type Name | Conversion |
+|---------|-----------|------------|
+| `IpDataHandler` | `ip` | `long` → `"a.b.c.d"` |
 | `ShortDateDataHandler` | `short_date` | epoch ms → `"dd MMM yyyy"` |
 | `LongDateDataHandler` | `long_date` | epoch ms → `"dd MMM yyyy HH:mm:ss"` |
 
-To add a new handler: implement `DataHandler`, register in `DataManager`.
+To add a handler:
+```java
+DataManager.register("my_type", new MyHandler());
+```
 
 ---
 
 ## Security
 
-### Session Filter (Optional)
+FkBlitz uses **Spring Security** with form-based session authentication.
 
-`SessionFilter` intercepts all requests and checks for a valid session attribute. If the session is missing or the attribute is absent, the request is redirected to `loginUrl`.
+- All `/api/**` endpoints except `/api/login` require an authenticated session.
+- Unauthenticated API requests receive `401 {"error":"Unauthorized"}` — no redirect.
+- CSRF is disabled (session cookie is `HttpOnly`; intended for same-origin browser use).
+- CORS is configured to allow `http://localhost:5173` (Vite dev server) only.
+- `UPDATABLE`/`DELETABLE` flags per connection control mutation exposure.
+- Credentials in `DatabaseConnection.xml` are plaintext — restrict file permissions and use `/etc/fkblitz/` in production.
 
-To enable, uncomment the filter mapping in `web.xml` and set the init parameters:
-
-```xml
-<filter>
-  <filter-name>SessionFilter</filter-name>
-  <filter-class>com.vivek.filter.SessionFilter</filter-class>
-  <init-param><param-name>loginUrl</param-name><param-value>/login.jsp</param-value></init-param>
-  <init-param><param-name>sessionAttributeName</param-name><param-value>user</param-value></init-param>
-</filter>
-<filter-mapping>
-  <filter-name>SessionFilter</filter-name>
-  <url-pattern>/*</url-pattern>
-</filter-mapping>
-```
-
-### Notes
-
-- Credentials in `DatabaseConnection.xml` are stored in plaintext. Use filesystem permissions to restrict access.
-- The `UPDATABLE` and `DELETABLE` flags per connection control whether row mutations are exposed in the UI.
-- `NON_INDEXED_SEARCHABLE_ROW_LIMIT` limits full-table scans on unindexed columns.
-
----
-
-## Frontend Pages
-
-All pages live under `webapp/mysql/`.
-
-| Page | Description |
-|------|-------------|
-| `groups.jsp` | Lists available database groups (environments) |
-| `databases.jsp` | Lists databases within a group |
-| `tables.jsp` | Lists tables within a database |
-| `viewResultSet.jsp` | Displays query results in a table |
-| `getReferences.jsp` | Fetches and displays rows related via foreign keys (referTo) |
-| `getDeReferences.jsp` | Fetches rows that reference the current row (referencedBy) |
-| `traceRow.jsp` | Traces a row through all its relationships |
-| `execute.jsp` | Free-form SQL execution |
-| `editRow.jsp` | Edit a row (if `UPDATABLE=true`) |
-| `addRow.jsp` | Add a new row (if `UPDATABLE=true`) |
-| `deleteRow.jsp` | Delete a row (if `DELETABLE=true`) |
-| `admin/relation/` | Admin pages for relationship inspection |
-
-JavaScript: `mysql.js`, `loader.js`
-CSS: `mysql.css`
+For team deployments: run behind a reverse proxy (nginx, Caddy) with your existing SSO/VPN layer. Do not expose directly to the internet.
 
 ---
 
 ## Dependencies
 
+### Backend
+
 | Library | Version | Purpose |
 |---------|---------|---------|
-| Lombok | 1.18.10 | Boilerplate reduction (`@Data`, `@Getter`, etc.) |
-| javax.servlet-api | 4.0.1 | Servlet API |
-| log4j | 1.2.17 | Logging |
-| org.json | 20231013 | JSON parsing |
-| org.jdom | 2.0.2 | XML parsing |
-| mysql-connector-java | 8.0.28 | MySQL JDBC driver |
-| org.mariadb.jdbc | 2.1.2 | MariaDB JDBC driver |
+| Spring Boot | 3.3.x | Web framework, security, embedded Tomcat |
+| spring-boot-starter-security | 3.3.x | Session auth |
+| spring-boot-starter-actuator | 3.3.x | Health endpoints |
+| mysql-connector-j | 9.1.0 | MySQL JDBC driver |
+| mariadb-java-client | 3.4.x | MariaDB JDBC driver |
+| org.json | 20240303 | JSON parsing for config |
+
+### Frontend
+
+| Library | Version | Purpose |
+|---------|---------|---------|
+| React | 18.x | UI framework |
+| Vite | 8.x | Build tool and dev server |
+| @vitejs/plugin-react | 6.x | React plugin for Vite |
+| @tanstack/react-table | 8.x | Headless table with sorting/filtering |
+| axios | 1.x | HTTP client |
 
 ---
 
 ## Build & Deployment
 
-**Build tool:** Maven
+### Development
 
-```bash
-mvn clean install
+```sh
+# Backend
+cd backend && mvn spring-boot:run
+
+# Frontend (separate terminal)
+cd frontend && npm install && npm run dev
 ```
 
-**Run locally with Tomcat 7 plugin:**
+Frontend dev server at `http://localhost:5173` — proxies `/fkblitz` to `:9044`.
 
-```bash
-mvn tomcat7:run
+### Production (embedded)
+
+```sh
+cd frontend && npm run build   # outputs to frontend/dist/
+cd ../backend && mvn package   # copies dist/ into JAR via maven-resources-plugin
+java -jar target/*.jar
 ```
 
-Runs on port **9044** at path `/sql-storm/`.
+Single JAR serves both API and frontend at `http://localhost:9044/fkblitz/`.
 
-**WAR deployment:** Copy the generated `target/sql-storm.war` to a Tomcat `webapps/` directory. The context path is `/sql-storm` (configured in `META-INF/context.xml`).
+### Docker
 
-**Java version:** 1.7+ (configured in `maven-compiler-plugin`)
+```sh
+docker compose up --build
+```
 
-**Log output:** `/var/log/sql-storm.log` — ensure the Tomcat process has write permission.
+See `Dockerfile` (multi-stage: Node build → Maven build → JRE runtime) and `docker-compose.yml`.
 
-**Config file placement:** Drop `DatabaseConnection.xml` and `custom_mapping.json` into `/etc/sql-storm/` for production deployments. Fallback is `~/` or the classpath.
+### Config in production
+
+```sh
+sudo mkdir -p /etc/fkblitz
+sudo cp DatabaseConnection.xml /etc/fkblitz/
+sudo cp custom_mapping.json /etc/fkblitz/   # optional
+```
+
+Override credentials via environment variables:
+
+```sh
+SPRING_SECURITY_USER_NAME=admin
+SPRING_SECURITY_USER_PASSWORD=<strong-password>
+```
