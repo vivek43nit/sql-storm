@@ -37,7 +37,7 @@
 - **Converter utility** — IP ↔ integer, date ↔ epoch ms, live server clock
 - **RBAC auth** — ADMIN / READ_WRITE / READ_ONLY roles with multiple user-store backends
 - **OAuth2/OIDC** — sign in with Google, GitHub, or any OIDC provider (optional)
-- **Observability** — Prometheus metrics, structured JSON logging, Grafana dashboard
+- **Observability** — Prometheus metrics, structured JSON logging with W3C distributed tracing (`trace_id` / `span_id`), Grafana dashboard
 - **Kubernetes-ready** — Helm chart with HPA, health probes, and optional Redis
 
 ---
@@ -106,6 +106,20 @@ fkblitz/
 ├── docker-compose.yml
 └── Dockerfile        # Multi-arch (linux/amd64, linux/arm64)
 ```
+
+---
+
+## Testing
+
+```sh
+# Backend — runs all tests and enforces 80% JaCoCo line coverage
+cd backend && mvn verify
+
+# Frontend — runs Vitest unit tests
+cd frontend && npm test
+```
+
+The backend test suite covers controllers, services, parsers, data handlers, config loaders, and infrastructure utilities (22 test classes, 100+ tests). JaCoCo enforces ≥80% line coverage on all business-logic classes; the check fails the build if the threshold is not met.
 
 ---
 

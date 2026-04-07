@@ -14,8 +14,10 @@
     <encoder class="net.logstash.logback.encoder.LogstashEncoder">
       <!-- Inject static fields on every log line -->
       <customFields>{"service":"fkblitz"}</customFields>
-      <!-- Expose MDC requestId as a top-level field -->
+      <!-- Expose MDC tracing fields as top-level fields -->
       <includeMdcKeyName>requestId</includeMdcKeyName>
+      <includeMdcKeyName>trace_id</includeMdcKeyName>
+      <includeMdcKeyName>span_id</includeMdcKeyName>
       <!-- Suppress noisy Logstash-added fields we don't need -->
       <fieldNames>
         <version>[ignore]</version>
