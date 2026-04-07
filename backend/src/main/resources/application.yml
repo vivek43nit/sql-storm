@@ -4,13 +4,137 @@ server:
     context-path: /fkblitz
 
 spring:
+  application:
+    name: fkblitz
+  # Remove Spring Boot's default single-user security (we use our own UserDetailsService)
   security:
     user:
-      name: admin
-      password: changeme
+      name: ""
+      password: ""
   session:
+    # "none" disables Spring Boot session auto-config; Redis session is wired
+    # explicitly in RedisConfig when fkblitz.redis.enabled=true
+    store-type: none
     timeout: 30m
+
+  # JPA / H2 for auth user store (default: embedded H2 in-memory)
+  datasource:
+    url: jdbc:h2:mem:fkblitz_auth;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    database-platform: org.hibernate.dialect.H2Dialect
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+    prometheus:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+      version: "@project.version@"
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: alpha
+    tags-sorter: alpha
+    # Disable the default petstore example
+    disable-swagger-default-url: true
+  api-docs:
+    path: /v3/api-docs
+
+logging:
+  # JSON output when running with --spring.profiles.active=prod
+  # Human-readable console output otherwise (see logback-spring.xml)
+  level:
+    root: INFO
+    com.vivek: INFO
 
 fkblitz:
   cors:
     allowed-origins: "http://localhost:5173"
+
+  auth:
+    # User store backend: h2 | mysql | config | external-api
+    user-store: h2
+    admin-user: ${FKBLITZ_ADMIN_USER:admin}
+    admin-password: ${FKBLITZ_ADMIN_PASSWORD:changeme}
+
+    # OAuth2 login (disabled by default)
+    oauth2:
+      enabled: false
+      role-claim: fkblitz_role
+      default-role: READ_ONLY
+
+    # Uncomment to use static users (user-store: config)
+    # users:
+    #   - username: alice
+    #     password: "{bcrypt}$2a$10$..."
+    #     role: READ_WRITE
+    #     permissions: ""
+    #   - username: readonly
+    #     password: "{noop}secret"
+    #     role: READ_ONLY
+
+    # Uncomment to delegate to an external auth API (user-store: external-api)
+    # external-api:
+    #   url: https://auth.internal/verify
+    #   token: ${FKBLITZ_AUTH_API_TOKEN:}
+    #   role-claim: role
+    #   timeout-seconds: 5
+
+  # Configuration source for DB connections and custom relation mappings.
+  # source: file | api | db  (default: file — uses existing ResorceFinder search paths)
+  config:
+    connection:
+      source: file
+      # api:
+      #   url: https://config.internal/fkblitz/connections
+      #   token: ${FKBLITZ_CONFIG_API_TOKEN:}
+      #   format: xml          # xml | json
+      #   timeout-seconds: 10
+      # db:
+      #   url: jdbc:mysql://config-db:3306/configdb
+      #   username: ${FKBLITZ_CFGDB_USER:}
+      #   password: ${FKBLITZ_CFGDB_PASSWORD:}
+      #   table: fkblitz_connection_config
+      #   column: config_content
+      #   format: xml          # xml | json
+      #   refresh-interval-seconds: 60   # 0 = no auto-refresh
+
+    custom-mapping:
+      source: file
+      # api:
+      #   url: https://config.internal/fkblitz/custom-mapping
+      #   token: ${FKBLITZ_CONFIG_API_TOKEN:}
+      #   format: json
+      #   timeout-seconds: 10
+      # db:
+      #   url: jdbc:mysql://config-db:3306/configdb
+      #   username: ${FKBLITZ_CFGDB_USER:}
+      #   password: ${FKBLITZ_CFGDB_PASSWORD:}
+      #   table: fkblitz_custom_mapping
+      #   column: config_content
+      #   format: json
+      #   refresh-interval-seconds: 300  # 0 = no auto-refresh
+
+  # Redis (optional): enables Redis-backed session storage and metadata caching.
+  # Set enabled=true and configure host/port to activate.
+  redis:
+    enabled: ${FKBLITZ_REDIS_ENABLED:false}
+    host: ${FKBLITZ_REDIS_HOST:localhost}
+    port: ${FKBLITZ_REDIS_PORT:6379}
+    password: ${FKBLITZ_REDIS_PASSWORD:}

@@ -1,0 +1,17 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'fkblitz'
+    metrics_path: '/fkblitz/actuator/prometheus'
+    static_configs:
+      - targets: ['fkblitz:9044']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'fkblitz'
+
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']

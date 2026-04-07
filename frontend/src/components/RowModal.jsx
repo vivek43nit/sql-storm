@@ -94,12 +94,15 @@ export default function RowModal({ mode, columns, row, pk, onSave, onDelete, onC
           /* Add / Edit form */
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div style={{ overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {columns.map(col => (
+              {columns.map(col => {
+                const inputId = `row-field-${col.replace(/[^a-zA-Z0-9]/g, '-')}`;
+                return (
                 <div key={col} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <label style={{ width: 130, fontSize: 12, color: 'var(--color-text-2)', fontFamily: 'var(--font-mono)', flexShrink: 0, textAlign: 'right' }}>
+                  <label htmlFor={inputId} style={{ width: 130, fontSize: 12, color: 'var(--color-text-2)', fontFamily: 'var(--font-mono)', flexShrink: 0, textAlign: 'right' }}>
                     {col}
                   </label>
                   <input
+                    id={inputId}
                     value={formData[col] ?? ''}
                     onChange={e => setFormData(prev => ({ ...prev, [col]: e.target.value }))}
                     disabled={mode === 'edit' && col === pk}
@@ -116,7 +119,8 @@ export default function RowModal({ mode, columns, row, pk, onSave, onDelete, onC
                     }}
                   />
                 </div>
-              ))}
+              )})}
+
             </div>
 
             {error && (

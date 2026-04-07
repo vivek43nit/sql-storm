@@ -2,14 +2,27 @@ services:
   fkblitz:
     build: .
     ports:
-      - "8080:8080"
+      - "9044:9044"
     volumes:
-      # Mount your DatabaseConnection.xml here
       - ./backend/src/main/resources/DatabaseConnection.xml:/etc/fkblitz/DatabaseConnection.xml:ro
     environment:
-      SPRING_SECURITY_USER_NAME: admin
-      SPRING_SECURITY_USER_PASSWORD: changeme
+      FKBLITZ_ADMIN_USER: ${FKBLITZ_ADMIN_USER:-admin}
+      FKBLITZ_ADMIN_PASSWORD: ${FKBLITZ_ADMIN_PASSWORD:-changeme}
+      # Enable Redis-backed sessions and metrics caching:
+      FKBLITZ_REDIS_ENABLED: ${FKBLITZ_REDIS_ENABLED:-false}
+      FKBLITZ_REDIS_HOST: redis
+      FKBLITZ_REDIS_PORT: 6379
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-}
+    depends_on:
+      - mariadb
+      - redis
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9044/fkblitz/actuator/health/liveness"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
 
   # Optional: sample MariaDB for trying FkBlitz locally
   # Remove this block if you're connecting to an existing database
@@ -25,5 +38,53 @@ services:
     volumes:
       - mariadb_data:/var/lib/mysql
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  prometheus:
+    image: prom/prometheus:v2.54.0
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    depends_on:
+      - fkblitz
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
 volumes:
   mariadb_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:

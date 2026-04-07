@@ -1,0 +1,44 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:base"],
+  "schedule": ["every weekend"],
+  "labels": ["dependencies"],
+  "packageRules": [
+    {
+      "description": "Auto-merge patch updates for all packages if CI passes",
+      "matchUpdateTypes": ["patch"],
+      "automerge": true,
+      "automergeType": "pr"
+    },
+    {
+      "description": "Minor updates require one review",
+      "matchUpdateTypes": ["minor"],
+      "automerge": false,
+      "reviewers": ["vivek43nit"]
+    },
+    {
+      "description": "Major updates require team discussion",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "reviewers": ["vivek43nit"],
+      "labels": ["dependencies", "breaking-change"]
+    },
+    {
+      "description": "Group Spring Boot ecosystem updates together",
+      "matchPackagePrefixes": ["org.springframework", "org.springdoc"],
+      "groupName": "spring-ecosystem"
+    },
+    {
+      "description": "Group frontend testing tools together",
+      "matchPackageNames": [
+        "vitest",
+        "@vitest/coverage-v8",
+        "@testing-library/react",
+        "@testing-library/jest-dom",
+        "@testing-library/user-event",
+        "jest-axe"
+      ],
+      "groupName": "frontend-testing"
+    }
+  ]
+}

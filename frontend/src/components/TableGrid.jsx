@@ -8,7 +8,8 @@ import { useMemo, useState, useEffect, useRef } from 'react'
 import { getReferences, getDeReferences, traceRow, addRow, editRow, deleteRow } from '../api/client'
 import RowModal from './RowModal'
 
-export default function TableGrid({ resultSet, group, onAddResults, onReQuery, refRowLimit = 100 }) {
+export default function TableGrid({ resultSet, group, onAddResults, onReQuery, refRowLimit = 100, userRole }) {
+  const canMutate = userRole === 'ADMIN' || userRole === 'READ_WRITE'
   const isSelfRelation = !resultSet?.relation || resultSet.relation === 'self'
 
   // Server-side filter/sort state (only for self-relation tables)
@@ -25,8 +26,8 @@ export default function TableGrid({ resultSet, group, onAddResults, onReQuery, r
   const referTo = resultSet?.referToColumns ?? {}
   const referencedBy = resultSet?.referencedByColumns ?? {}
   const pk = resultSet?.pk || null
-  const canEdit = isSelfRelation && pk && resultSet?.updatable
-  const canDelete = isSelfRelation && pk && resultSet?.deletable
+  const canEdit = canMutate && isSelfRelation && pk && resultSet?.updatable
+  const canDelete = canMutate && isSelfRelation && pk && resultSet?.deletable
 
   const relationCol = useMemo(() => {
     if (isSelfRelation) return null
@@ -250,18 +251,19 @@ export default function TableGrid({ resultSet, group, onAddResults, onReQuery, r
                   {/* Filter row — server-side, self-relation only */}
                   {isSelfRelation && (
                     <tr key={hg.id + '-filter'}>
-                      <th style={filterThStyle} />
+                      <th style={filterThStyle} aria-hidden="true" />
                       {hg.headers.map(h => (
                         <th key={h.id + '-f'} style={filterThStyle}>
                           <input
                             value={filters[h.column.id] ?? ''}
                             onChange={e => setFilters(prev => ({ ...prev, [h.column.id]: e.target.value }))}
                             placeholder="filter…"
+                            aria-label={`Filter ${h.column.id}`}
                             style={{ width: '100%', padding: '2px 5px', fontSize: 11, border: '1px solid var(--color-border-2)', borderRadius: 3, background: 'var(--color-surface)', color: 'var(--color-text)', fontFamily: 'var(--font-mono)' }}
                           />
                         </th>
                       ))}
-                      <th style={filterThStyle} />
+                      <th style={filterThStyle} aria-hidden="true" />
                     </tr>
                   )}
                 </>

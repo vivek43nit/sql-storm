@@ -1,0 +1,20 @@
+{{- if .Values.redis.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "fkblitz.fullname" . }}-redis
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "fkblitz.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+spec:
+  type: ClusterIP
+  ports:
+    - name: redis
+      port: {{ .Values.redis.internal.port }}
+      targetPort: redis
+      protocol: TCP
+  selector:
+    {{- include "fkblitz.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+{{- end }}
