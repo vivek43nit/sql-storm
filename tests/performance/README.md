@@ -73,11 +73,11 @@ The only script that actually borrows JDBC connections from the data pool (40% s
 
 | Metric | Max | Avg | Ceiling |
 |---|---|---|---|
-| JDBC active (data pool) | 7 | 1.2 | 100 |
+| JDBC active (data pool) | 7 | 0.8 | 100 |
 | JDBC pending | 0 | 0 | — |
 | JDBC acquire latency | 14.5ms | — | — |
-| Tomcat threads busy | 22 | 4.1 | 400 |
-| JVM heap | 178 MB | 113 MB | 1024 MB |
+| Tomcat threads busy | 22 | 3.1 | 400 |
+| JVM heap | 196 MB | 115 MB | 1024 MB |
 
 **Confirmed production config for SQL-heavy workloads at 100 VUs:**
 
