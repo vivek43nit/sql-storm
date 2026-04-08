@@ -61,8 +61,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/login", "/api/auth/config",
                         "/oauth2/**", "/login/oauth2/**",
                         "/assets/**", "/index.html", "/favicon.ico", "/vite.svg", "/").permitAll()
-                // Actuator health — public; rest of actuator — ADMIN only
-                .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                // Actuator health + Prometheus metrics — public (Prometheus scraper has no auth)
+                .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/prometheus").permitAll()
                 .requestMatchers("/actuator/**").hasRole("ADMIN")
                 // Swagger UI and OpenAPI spec — ADMIN only
                 .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").hasRole("ADMIN")

@@ -9,10 +9,13 @@ import com.vivek.sqlstorm.config.loader.ApiConfigLoader;
 import com.vivek.sqlstorm.config.loader.ConfigLoaderStrategy;
 import com.vivek.sqlstorm.config.loader.DbConfigLoader;
 import com.vivek.sqlstorm.config.loader.FileConfigLoader;
+import com.vivek.sqlstorm.config.loader.RefreshableConfigLoader;
+import com.vivek.sqlstorm.config.loader.RelationRowDbLoader;
 import com.vivek.sqlstorm.constants.Constants;
 import com.vivek.sqlstorm.connection.DatabaseConnectionManager;
 import com.vivek.sqlstorm.metadata.DatabaseMetaDataManager;
 import com.vivek.utils.parser.ConfigParserInterface;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationRunner;
@@ -22,7 +25,9 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.TaskScheduler;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Configuration
 @EnableConfigurationProperties(FkBlitzConfigProperties.class)
@@ -32,7 +37,8 @@ public class ConfigLoaderConfig {
     // ── Connection config loader ────────────────────────────────────────────
 
     @Bean
-    public ConfigLoaderStrategy<ConnectionConfig> connectionConfigLoader(FkBlitzConfigProperties props) {
+    public ConfigLoaderStrategy<ConnectionConfig> connectionConfigLoader(
+            FkBlitzConfigProperties props, MeterRegistry meterRegistry) {
         FkBlitzConfigProperties.ConfigSource src = props.getConfig().getConnection();
         return switch (src.getSource()) {
             case "api" -> {
@@ -53,7 +59,8 @@ public class ConfigLoaderConfig {
                         src.getDb().getTable(),
                         src.getDb().getColumn(),
                         src.getDb().getFormat(),
-                        parserForConnectionFormat(src.getDb().getFormat()));
+                        parserForConnectionFormat(src.getDb().getFormat()),
+                        meterRegistry);
             }
             default -> new FileConfigLoader<>(
                     ConnectionConfig.class,
@@ -65,7 +72,8 @@ public class ConfigLoaderConfig {
     // ── Custom mapping config loader ───────────────────────────────────────
 
     @Bean
-    public ConfigLoaderStrategy<CustomRelationConfig> customMappingConfigLoader(FkBlitzConfigProperties props) {
+    public ConfigLoaderStrategy<CustomRelationConfig> customMappingConfigLoader(
+            FkBlitzConfigProperties props, MeterRegistry meterRegistry) {
         FkBlitzConfigProperties.ConfigSource src = props.getConfig().getCustomMapping();
         return switch (src.getSource()) {
             case "api" -> {
@@ -86,7 +94,17 @@ public class ConfigLoaderConfig {
                         src.getDb().getTable(),
                         src.getDb().getColumn(),
                         src.getDb().getFormat(),
-                        new CustomRelationConfigJsonParser());
+                        new CustomRelationConfigJsonParser(),
+                        meterRegistry);
+            }
+            case "relation-table" -> {
+                validateDbConfig(src.getDb(), "custom-mapping");
+                yield new RelationRowDbLoader(
+                        src.getDb().getUrl(),
+                        src.getDb().getUsername(),
+                        src.getDb().getPassword(),
+                        src.getDb().getTable(),
+                        meterRegistry);
             }
             default -> new FileConfigLoader<>(
                     CustomRelationConfig.class,
@@ -98,9 +116,9 @@ public class ConfigLoaderConfig {
     // ── Auto-refresh wiring (runs after all beans are ready) ───────────────
 
     /**
-     * If either loader is a DbConfigLoader with refreshIntervalSeconds > 0,
-     * schedule its refresh() method via the TaskScheduler and register the
-     * appropriate change listener on the manager.
+     * If either loader is a RefreshableConfigLoader (DbConfigLoader or RelationRowDbLoader)
+     * and refreshIntervalSeconds > 0, schedule its refresh() via TaskScheduler with a random
+     * startup jitter to prevent thundering-herd in multi-node deployments.
      */
     @Bean
     public ApplicationRunner configRefreshSetup(
@@ -125,11 +143,14 @@ public class ConfigLoaderConfig {
                                            DatabaseConnectionManager manager,
                                            TaskScheduler scheduler,
                                            long intervalSeconds) {
-        if (!(loader instanceof DbConfigLoader<ConnectionConfig> dbLoader)) return;
-        dbLoader.setChangeListener(manager::reloadConnections);
+        if (!(loader instanceof RefreshableConfigLoader<ConnectionConfig> refreshable)) return;
+        refreshable.setChangeListener(manager::reloadConnections);
         if (intervalSeconds > 0) {
-            scheduler.scheduleWithFixedDelay(dbLoader::refresh, Duration.ofSeconds(intervalSeconds));
-            log.info("Scheduled connection config refresh every {}s from DB", intervalSeconds);
+            Instant firstRun = Instant.now().plusMillis(
+                    ThreadLocalRandom.current().nextLong(intervalSeconds * 1_000));
+            scheduler.scheduleWithFixedDelay(refreshable::refresh, firstRun,
+                    Duration.ofSeconds(intervalSeconds));
+            log.info("Scheduled connection config refresh every {}s from DB (jitter applied)", intervalSeconds);
         }
     }
 
@@ -138,11 +159,14 @@ public class ConfigLoaderConfig {
                                               DatabaseMetaDataManager manager,
                                               TaskScheduler scheduler,
                                               long intervalSeconds) {
-        if (!(loader instanceof DbConfigLoader<CustomRelationConfig> dbLoader)) return;
-        dbLoader.setChangeListener(manager::reloadCustomRelationConfig);
+        if (!(loader instanceof RefreshableConfigLoader<CustomRelationConfig> refreshable)) return;
+        refreshable.setChangeListener(manager::reloadCustomRelationConfig);
         if (intervalSeconds > 0) {
-            scheduler.scheduleWithFixedDelay(dbLoader::refresh, Duration.ofSeconds(intervalSeconds));
-            log.info("Scheduled custom-mapping config refresh every {}s from DB", intervalSeconds);
+            Instant firstRun = Instant.now().plusMillis(
+                    ThreadLocalRandom.current().nextLong(intervalSeconds * 1_000));
+            scheduler.scheduleWithFixedDelay(refreshable::refresh, firstRun,
+                    Duration.ofSeconds(intervalSeconds));
+            log.info("Scheduled custom-mapping config refresh every {}s from DB (jitter applied)", intervalSeconds);
         }
     }
 

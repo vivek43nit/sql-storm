@@ -24,9 +24,9 @@
 package com.vivek.sqlstorm.dto;
 
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  *
@@ -35,14 +35,12 @@ import java.util.Map;
 public class DatabaseDTO {
     private String group;
     private String name;
-    private boolean loadedFromDb;
-    private Map<String, TableDTO> tables;
+    private volatile boolean loadedFromDb;
+    private final Map<String, TableDTO> tables = new ConcurrentHashMap<>();
 
     public DatabaseDTO(String group, String name) {
         this.group = group;
         this.name = name;
-        this.loadedFromDb = false;
-        this.tables = new HashMap<String, TableDTO>();
     }
 
     public boolean isLoadedFromDb() {
@@ -75,10 +73,7 @@ public class DatabaseDTO {
     }
 
     public TableDTO getOrAddTableMetaData(String name) {
-        if(!tables.containsKey(name)){
-            tables.put(name, new TableDTO(name));
-        }
-        return tables.get(name);
+        return tables.computeIfAbsent(name, TableDTO::new);
     }
     
     public void addTableMetaData(TableDTO tableMetaData) {

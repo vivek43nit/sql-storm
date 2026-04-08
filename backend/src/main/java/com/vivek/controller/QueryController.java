@@ -55,20 +55,21 @@ public class QueryController {
                 if (!updatable) {
                     return ResponseEntity.status(403).body("Update permission is prohibited for this database");
                 }
-                Connection con = databaseManager.getConnection(group, req.getDatabase());
-                try (PreparedStatement ps = con.prepareStatement(req.getQuery())) {
+                try (Connection con = databaseManager.getConnection(group, req.getDatabase());
+                     PreparedStatement ps = con.prepareStatement(req.getQuery())) {
                     int count = ps.executeUpdate();
                     return ResponseEntity.ok(Map.of("affectedRows", count));
                 }
             }
 
-            Connection con = databaseManager.getConnection(group, req.getDatabase());
-            ResultSetDTO dto = executeSelectQuery(con, req.getQuery(), req.getInfo(),
-                    req.getRelation(), group, req.getDatabase(), updatable, deletable);
-            metrics.recordQuerySuccess(group, req.getDatabase(), System.currentTimeMillis() - start);
-            return ResponseEntity.ok(dto);
+            try (Connection con = databaseManager.getConnection(group, req.getDatabase())) {
+                ResultSetDTO dto = executeSelectQuery(con, req.getQuery(), req.getInfo(),
+                        req.getRelation(), group, req.getDatabase(), updatable, deletable);
+                metrics.recordQuerySuccess(group, req.getDatabase(), System.currentTimeMillis() - start);
+                return ResponseEntity.ok(dto);
+            }
 
-        } catch (ConnectionDetailNotFound | SQLException | ClassNotFoundException e) {
+        } catch (ConnectionDetailNotFound | SQLException e) {
             metrics.recordQueryError(group, req.getDatabase());
             logger.error("Execute error: " + e.getMessage(), e);
             return ResponseEntity.internalServerError().body(e.getMessage());
@@ -105,11 +106,12 @@ public class QueryController {
             for (ColumnPath referencedBy : referencedByList) {
                 for (ExecuteRequest r : DBHelper.getExecuteRequestsForReferedByReq(
                         databaseManager, group, selfPath, referencedBy, value, isAppend, refRowLimit)) {
-                    Connection con = databaseManager.getConnection(group, r.getDatabase());
-                    boolean upd = databaseManager.isUpdatableConnection(group, r.getDatabase());
-                    boolean del = databaseManager.isDeletableConnection(group, r.getDatabase());
-                    results.add(executeSelectQuery(con, r.getQuery(), r.getInfo(), r.getRelation(),
-                            group, r.getDatabase(), upd, del));
+                    try (Connection con = databaseManager.getConnection(group, r.getDatabase())) {
+                        boolean upd = databaseManager.isUpdatableConnection(group, r.getDatabase());
+                        boolean del = databaseManager.isDeletableConnection(group, r.getDatabase());
+                        results.add(executeSelectQuery(con, r.getQuery(), r.getInfo(), r.getRelation(),
+                                group, r.getDatabase(), upd, del));
+                    }
                     isAppend = true;
                 }
             }
@@ -147,23 +149,25 @@ public class QueryController {
                 }
                 TableDTO refTable = databaseManager.getMetaData(group, referTo.getDatabase())
                         .getTableMetaData(referTo.getTable());
-                String query = String.format("select * from %s where %s='%s'",
-                        referTo.getTable(), referTo.getColumn(), value);
+                // Use ? for value to avoid SQL injection; table/column names are identifiers (cannot be parameterized)
+                String query = String.format("SELECT * FROM `%s` WHERE `%s` = ?",
+                        referTo.getTable(), referTo.getColumn());
                 if (refTable.getPrimaryKey() != null) {
-                    query += " order by " + refTable.getPrimaryKey() + " DESC";
+                    query += " ORDER BY `" + refTable.getPrimaryKey() + "` DESC";
                 }
-                query += " limit " + refRowLimit;
+                query += " LIMIT " + refRowLimit;
 
-                Connection con = databaseManager.getConnection(group, referTo.getDatabase());
-                boolean upd = databaseManager.isUpdatableConnection(group, referTo.getDatabase());
-                boolean del = databaseManager.isDeletableConnection(group, referTo.getDatabase());
-                String info = table + "." + column + " -> " + referTo.getTable() + "." + referTo.getColumn();
-                results.add(executeSelectQuery(con, query, info, ExecuteRequest.REFER_TO,
-                        group, referTo.getDatabase(), upd, del));
+                try (Connection con = databaseManager.getConnection(group, referTo.getDatabase())) {
+                    boolean upd = databaseManager.isUpdatableConnection(group, referTo.getDatabase());
+                    boolean del = databaseManager.isDeletableConnection(group, referTo.getDatabase());
+                    String info = table + "." + column + " -> " + referTo.getTable() + "." + referTo.getColumn();
+                    results.add(executeSelectQuery(con, query, new Object[]{value}, info, ExecuteRequest.REFER_TO,
+                            group, referTo.getDatabase(), upd, del));
+                }
             }
             return ResponseEntity.ok(results);
 
-        } catch (ConnectionDetailNotFound | SQLException | ClassNotFoundException e) {
+        } catch (ConnectionDetailNotFound | SQLException e) {
             logger.error("DeReferences error: " + e.getMessage(), e);
             return ResponseEntity.internalServerError().body(e.getMessage());
         }
@@ -204,7 +208,7 @@ public class QueryController {
 
             return ResponseEntity.ok(results);
 
-        } catch (ConnectionDetailNotFound | SQLException | ClassNotFoundException e) {
+        } catch (ConnectionDetailNotFound | SQLException e) {
             logger.error("Trace error: " + e.getMessage(), e);
             return ResponseEntity.internalServerError().body(e.getMessage());
         }
@@ -223,6 +227,12 @@ public class QueryController {
     private ResultSetDTO executeSelectQuery(Connection con, String query, String info, String relation,
                                              String group, String database,
                                              boolean updatable, boolean deletable) throws SQLException {
+        return executeSelectQuery(con, query, null, info, relation, group, database, updatable, deletable);
+    }
+
+    private ResultSetDTO executeSelectQuery(Connection con, String query, Object[] params, String info, String relation,
+                                             String group, String database,
+                                             boolean updatable, boolean deletable) throws SQLException {
         ResultSetDTO dto = new ResultSetDTO();
         dto.setQuery(query);
         dto.setInfo(info);
@@ -232,30 +242,35 @@ public class QueryController {
         dto.setUpdatable(updatable);
         dto.setDeletable(deletable);
 
-        try (PreparedStatement ps = con.prepareStatement(query);
-             ResultSet rs = ps.executeQuery()) {
-
-            ResultSetMetaData meta = rs.getMetaData();
-            int colCount = meta.getColumnCount();
-
-            List<String> columns = new ArrayList<>();
-            for (int i = 1; i <= colCount; i++) {
-                columns.add(meta.getColumnLabel(i));
-            }
-            dto.setColumns(columns);
-
-            // Detect table from first column's table name
-            if (colCount > 0) dto.setTable(meta.getTableName(1));
-
-            List<Map<String, Object>> rows = new ArrayList<>();
-            while (rs.next()) {
-                Map<String, Object> rowMap = new LinkedHashMap<>();
-                for (int i = 1; i <= colCount; i++) {
-                    rowMap.put(meta.getColumnLabel(i), rs.getObject(i));
+        try (PreparedStatement ps = con.prepareStatement(query)) {
+            if (params != null) {
+                for (int p = 0; p < params.length; p++) {
+                    ps.setObject(p + 1, params[p]);
                 }
-                rows.add(rowMap);
             }
-            dto.setRows(rows);
+            try (ResultSet rs = ps.executeQuery()) {
+                ResultSetMetaData meta = rs.getMetaData();
+                int colCount = meta.getColumnCount();
+
+                List<String> columns = new ArrayList<>();
+                for (int i = 1; i <= colCount; i++) {
+                    columns.add(meta.getColumnLabel(i));
+                }
+                dto.setColumns(columns);
+
+                // Detect table from first column's table name
+                if (colCount > 0) dto.setTable(meta.getTableName(1));
+
+                List<Map<String, Object>> rows = new ArrayList<>();
+                while (rs.next()) {
+                    Map<String, Object> rowMap = new LinkedHashMap<>();
+                    for (int i = 1; i <= colCount; i++) {
+                        rowMap.put(meta.getColumnLabel(i), rs.getObject(i));
+                    }
+                    rows.add(rowMap);
+                }
+                dto.setRows(rows);
+            }
         }
 
         // Populate FK metadata so frontend knows which columns have navigable links

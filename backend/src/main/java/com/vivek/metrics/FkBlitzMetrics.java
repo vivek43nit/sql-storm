@@ -1,8 +1,6 @@
 package com.vivek.metrics;
 
-import com.vivek.sqlstorm.connection.DatabaseConnectionManager;
 import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import org.springframework.stereotype.Component;
@@ -12,29 +10,23 @@ import java.util.concurrent.TimeUnit;
 /**
  * Central point for recording FkBlitz-specific metrics.
  *
- * <p>Metric naming follows the Micrometer convention (dots). Prometheus exporter
- * converts dots to underscores automatically.</p>
- *
- * <ul>
- *   <li>{@code fkblitz.query.duration} — Timer (histogram) per group+database</li>
- *   <li>{@code fkblitz.query.requests} — Counter per group+database+status</li>
- *   <li>{@code fkblitz.auth.failures} — Counter for failed logins</li>
- *   <li>{@code fkblitz.crud.operations} — Counter per operation+table</li>
- *   <li>{@code fkblitz.connections.active} — Gauge of open DB connections</li>
- * </ul>
+ * <p>Connection pool metrics are now exported natively by HikariCP's Micrometer
+ * integration, labeled by pool name:
+ *   hikaricp_connections_active{pool="fkblitz-data-{group}-{db}"}
+ *   hikaricp_connections_max{pool="fkblitz-data-{group}-{db}"}
+ *   hikaricp_connections_pending{pool="fkblitz-data-{group}-{db}"}
+ *   hikaricp_connections_active{pool="fkblitz-auth"}
+ *   hikaricp_connections_active{pool="fkblitz-config-relation"}
+ *   hikaricp_connections_active{pool="fkblitz-config-db-{table}"}
+ * </p>
  */
 @Component
 public class FkBlitzMetrics {
 
   private final MeterRegistry registry;
 
-  public FkBlitzMetrics(MeterRegistry registry, DatabaseConnectionManager connectionManager) {
+  public FkBlitzMetrics(MeterRegistry registry) {
     this.registry = registry;
-
-    Gauge.builder("fkblitz.connections.active", connectionManager,
-            DatabaseConnectionManager::getActiveConnectionCount)
-        .description("Number of currently open database connections")
-        .register(registry);
   }
 
   // ── Query metrics ──────────────────────────────────────────────────────────

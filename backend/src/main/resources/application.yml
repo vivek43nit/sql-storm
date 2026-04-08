@@ -2,6 +2,12 @@ server:
   port: 9044
   servlet:
     context-path: /fkblitz
+  tomcat:
+    threads:
+      max: ${FKBLITZ_TOMCAT_THREADS_MAX:200}
+      min-spare: ${FKBLITZ_TOMCAT_THREADS_MIN:10}
+    mbeanregistry:
+      enabled: true
 
 spring:
   application:
@@ -30,6 +36,8 @@ spring:
     driver-class-name: org.h2.Driver
     username: sa
     password:
+    hikari:
+      pool-name: fkblitz-auth
   jpa:
     hibernate:
       ddl-auto: update
@@ -73,6 +81,9 @@ logging:
 fkblitz:
   cors:
     allowed-origins: "http://localhost:5173"
+
+  connection:
+    default-max-pool-size: ${FKBLITZ_MAX_POOL_SIZE:5}
 
   auth:
     # User store backend: h2 | mysql | config | external-api

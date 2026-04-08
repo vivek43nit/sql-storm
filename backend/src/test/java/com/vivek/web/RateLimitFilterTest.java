@@ -53,16 +53,21 @@ class RateLimitFilterTest {
   @Test
   @WithMockUser(username = "rl-exhaust-execute", roles = "READ_ONLY")
   void executeEndpoint_whenLimitExceeded_returns429() throws Exception {
-    // Exhaust all 60 tokens in the bucket
-    for (int i = 0; i < 60; i++) {
+    // queryType=U → controller returns 403 immediately (updatable=false from mock),
+    // avoiding the slow NPE → exception-handler path that would allow Bucket4j's greedy
+    // refill to replenish tokens during the loop.
+    // We send 80 requests (20 extra) to guarantee exhaustion even when a few tokens
+    // refill during the loop execution time.
+    String body = "{\"database\":\"db1\",\"query\":\"UPDATE x SET a=1\",\"queryType\":\"U\"}";
+    for (int i = 0; i < 80; i++) {
       mvc.perform(post("/api/execute").param("group", "g1")
           .contentType(MediaType.APPLICATION_JSON)
-          .content("{\"database\":\"db1\",\"query\":\"SELECT 1\"}"));
+          .content(body));
     }
-    // 61st must be rate-limited
+    // Next must be rate-limited — bucket is fully exhausted
     mvc.perform(post("/api/execute").param("group", "g1")
             .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"database\":\"db1\",\"query\":\"SELECT 1\"}"))
+            .content(body))
         .andExpect(status().isTooManyRequests())
         .andExpect(header().exists("Retry-After"));
   }

@@ -20,6 +20,7 @@ public class ConnectionDTO
     private boolean updatable = false;
     private boolean deletable = false;
     private int searchableRowLimit = 30000;
+    private int maxPoolSize = -1;
     
     public ConnectionDTO()
     {

@@ -99,6 +99,7 @@ export default function NavPanel({ onTableSelect }) {
               : tables.map(t => (
                 <div
                   key={t.name}
+                  data-testid={`table-item-${t.name}`}
                   onClick={() => handleTableClick(t)}
                   title={t.remark || t.name}
                   style={{

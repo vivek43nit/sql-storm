@@ -5,6 +5,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.session.data.redis.config.annotation.web.http.EnableRedisHttpSession;
 
 /**
@@ -35,5 +37,25 @@ public class RedisConfig {
       cfg.setPassword(redisCfg.getPassword());
     }
     return new LettuceConnectionFactory(cfg);
+  }
+
+  /**
+   * Required by Spring Session's RedisIndexedSessionRepository.
+   * RedisAutoConfiguration is globally excluded (application.yml) to prevent connection
+   * attempts when Redis is disabled, so we must declare this bean explicitly here.
+   */
+  @Bean
+  public RedisTemplate<Object, Object> redisTemplate() {
+    RedisTemplate<Object, Object> template = new RedisTemplate<>();
+    template.setConnectionFactory(redisConnectionFactory());
+    return template;
+  }
+
+  /**
+   * Required by ConfigPropagationConfig for Redis pub/sub config invalidation.
+   */
+  @Bean
+  public StringRedisTemplate stringRedisTemplate() {
+    return new StringRedisTemplate(redisConnectionFactory());
   }
 }

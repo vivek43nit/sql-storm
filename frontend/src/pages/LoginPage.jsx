@@ -101,7 +101,7 @@ export default function LoginPage({ onLogin }) {
           </div>
 
           {error && (
-            <div style={{
+            <div data-testid="login-error" style={{
               marginBottom: 16, padding: '8px 12px',
               background: 'var(--color-error-bg)', color: 'var(--color-error-text)',
               borderRadius: 'var(--radius-sm)', fontSize: 13,

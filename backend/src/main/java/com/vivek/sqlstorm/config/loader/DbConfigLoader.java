@@ -2,47 +2,57 @@ package com.vivek.sqlstorm.config.loader;
 
 import com.vivek.utils.parser.ConfigParserInterface;
 import com.vivek.utils.parser.ConfigParsingError;
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
+import com.zaxxer.hikari.metrics.micrometer.MicrometerMetricsTrackerFactory;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.lang.Nullable;
 
+import java.io.Closeable;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.time.Instant;
 import java.util.HexFormat;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 /**
- * Loads config from a single-row DB table column.
+ * Loads config from a single-row DB table column (JSON/XML blob).
  * Supports optional auto-refresh: when refreshIntervalSeconds > 0, a scheduler
  * (wired externally by ConfigLoaderConfig) calls {@link #refresh()} periodically.
  *
  * On change detection (SHA-256 hash comparison), the registered changeListener
  * is invoked with the new parsed config so callers can hot-reload.
  *
+ * Uses a small HikariCP pool (max 2) so config polls don't pay new TCP handshake
+ * overhead on every call.
+ *
  * Thread-safety: the latest parsed config is held in an AtomicReference.
  * Requests read from it without blocking; refresh replaces it atomically.
  */
-public class DbConfigLoader<T> implements ConfigLoaderStrategy<T> {
+public class DbConfigLoader<T> implements RefreshableConfigLoader<T>, Closeable {
     private static final Logger log = LoggerFactory.getLogger(DbConfigLoader.class);
 
-    private final String jdbcUrl;
-    private final String username;
-    private final String password;
     private final String table;
     private final String column;
     private final String fileExtension;   // "xml" or "json"
     private final ConfigParserInterface<T> parser;
+    private final HikariDataSource dataSource;
 
     private final AtomicReference<T> cachedConfig = new AtomicReference<>();
     private final AtomicReference<String> lastHash = new AtomicReference<>("");
     private volatile Consumer<T> changeListener;
+    /** Optional — injected by ConfigPropagationConfig for cross-node invalidation. */
+    private volatile StringRedisTemplate redisTemplate;
 
     public DbConfigLoader(String jdbcUrl,
                           String username,
@@ -50,19 +60,35 @@ public class DbConfigLoader<T> implements ConfigLoaderStrategy<T> {
                           String table,
                           String column,
                           String format,
-                          ConfigParserInterface<T> parser) {
-        this.jdbcUrl = jdbcUrl;
-        this.username = username;
-        this.password = password;
+                          ConfigParserInterface<T> parser,
+                          @Nullable MeterRegistry meterRegistry) {
         this.table = table;
         this.column = column;
         this.fileExtension = format;
         this.parser = parser;
+
+        HikariConfig hk = new HikariConfig();
+        hk.setJdbcUrl(jdbcUrl);
+        hk.setUsername(username);
+        hk.setPassword(password);
+        hk.setMaximumPoolSize(2);
+        hk.setMinimumIdle(1);
+        hk.setConnectionTimeout(30_000);
+        hk.setPoolName("fkblitz-config-db-" + table);
+        if (meterRegistry != null) {
+            hk.setMetricsTrackerFactory(new MicrometerMetricsTrackerFactory(meterRegistry));
+        }
+        this.dataSource = new HikariDataSource(hk);
     }
 
-    /** Register a listener that is called when a config change is detected during refresh. */
+    @Override
     public void setChangeListener(Consumer<T> listener) {
         this.changeListener = listener;
+    }
+
+    /** Optionally inject a Redis template for cross-node pub/sub invalidation. */
+    public void setRedisTemplate(StringRedisTemplate redisTemplate) {
+        this.redisTemplate = redisTemplate;
     }
 
     /** Initial load at startup — fails fast on error. */
@@ -81,6 +107,7 @@ public class DbConfigLoader<T> implements ConfigLoaderStrategy<T> {
      * On change, atomically updates the cached config and invokes the changeListener.
      * Failures are logged as WARN and the previous config is retained (fail-open for refresh).
      */
+    @Override
     public void refresh() {
         try {
             String content = fetchContent();
@@ -96,14 +123,23 @@ public class DbConfigLoader<T> implements ConfigLoaderStrategy<T> {
             if (listener != null) {
                 listener.accept(newConfig);
             }
+            publishToRedis();
         } catch (Exception e) {
-            log.warn("Config refresh from DB table '{}' failed — retaining previous config: {}", table, e.getMessage());
+            log.warn("Config refresh from DB table '{}' failed — retaining previous config: {}",
+                    table, e.getMessage());
+        }
+    }
+
+    @Override
+    public void close() {
+        if (dataSource != null && !dataSource.isClosed()) {
+            dataSource.close();
         }
     }
 
     private String fetchContent() throws ConfigLoadException {
         String sql = "SELECT " + column + " FROM " + table + " LIMIT 1";
-        try (Connection conn = DriverManager.getConnection(jdbcUrl, username, password);
+        try (Connection conn = dataSource.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
 
@@ -138,6 +174,16 @@ public class DbConfigLoader<T> implements ConfigLoaderStrategy<T> {
             throw e;
         } catch (ConfigParsingError | IOException e) {
             throw new ConfigLoadException("Failed to parse config from DB table: " + table, e);
+        }
+    }
+
+    private void publishToRedis() {
+        StringRedisTemplate rt = redisTemplate;
+        if (rt == null) return;
+        try {
+            rt.convertAndSend(RelationRowDbLoader.REDIS_CHANNEL, Instant.now().toString());
+        } catch (Exception e) {
+            log.warn("Failed to publish config-changed event to Redis: {}", e.getMessage());
         }
     }
 

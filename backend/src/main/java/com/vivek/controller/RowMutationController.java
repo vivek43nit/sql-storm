@@ -61,14 +61,13 @@ public class RowMutationController {
                     }
                 }
             }
-            Connection con = databaseManager.getConnection(group, database);
-
             StringJoiner cols = new StringJoiner(", ");
             StringJoiner placeholders = new StringJoiner(", ");
             data.keySet().forEach(k -> { cols.add("`" + k + "`"); placeholders.add("?"); });
-
             String sql = String.format("INSERT INTO `%s` (%s) VALUES (%s)", table, cols, placeholders);
-            try (PreparedStatement ps = con.prepareStatement(sql)) {
+
+            try (Connection con = databaseManager.getConnection(group, database);
+                 PreparedStatement ps = con.prepareStatement(sql)) {
                 int i = 1;
                 for (Object val : data.values()) ps.setObject(i++, val);
                 ps.executeUpdate();
@@ -76,7 +75,7 @@ public class RowMutationController {
             logger.info("AUDIT ADD_ROW user='" + currentUser() + "' group=" + group + " db=" + database + " table=" + table);
             metrics.recordCrudOperation("add", table);
             return ResponseEntity.ok("Row added successfully");
-        } catch (ConnectionDetailNotFound | SQLException | ClassNotFoundException e) {
+        } catch (ConnectionDetailNotFound | SQLException e) {
             logger.error("Add row error: " + e.getMessage(), e);
             return ResponseEntity.internalServerError().body(e.getMessage());
         }
@@ -102,13 +101,12 @@ public class RowMutationController {
                     }
                 }
             }
-            Connection con = databaseManager.getConnection(group, database);
-
             StringJoiner setClauses = new StringJoiner(", ");
             data.keySet().forEach(k -> setClauses.add("`" + k + "` = ?"));
-
             String sql = String.format("UPDATE `%s` SET %s WHERE `%s` = ?", table, setClauses, pk);
-            try (PreparedStatement ps = con.prepareStatement(sql)) {
+
+            try (Connection con = databaseManager.getConnection(group, database);
+                 PreparedStatement ps = con.prepareStatement(sql)) {
                 int i = 1;
                 for (Object val : data.values()) ps.setObject(i++, val);
                 ps.setObject(i, pkValue);
@@ -118,7 +116,7 @@ public class RowMutationController {
             logger.info("AUDIT EDIT_ROW user='" + currentUser() + "' group=" + group + " db=" + database + " table=" + table + " pk=" + pk + " pkValue=" + pkValue);
             metrics.recordCrudOperation("edit", table);
             return ResponseEntity.ok("Row updated successfully");
-        } catch (ConnectionDetailNotFound | SQLException | ClassNotFoundException e) {
+        } catch (ConnectionDetailNotFound | SQLException e) {
             logger.error("Edit row error: " + e.getMessage(), e);
             return ResponseEntity.internalServerError().body(e.getMessage());
         }
@@ -135,10 +133,9 @@ public class RowMutationController {
             if (!databaseManager.isDeletableConnection(group, database)) {
                 return ResponseEntity.status(403).body("Delete permission is prohibited for this database");
             }
-            Connection con = databaseManager.getConnection(group, database);
-
             String sql = String.format("DELETE FROM `%s` WHERE `%s` = ?", table, pk);
-            try (PreparedStatement ps = con.prepareStatement(sql)) {
+            try (Connection con = databaseManager.getConnection(group, database);
+                 PreparedStatement ps = con.prepareStatement(sql)) {
                 ps.setObject(1, pkValue);
                 int affected = ps.executeUpdate();
                 if (affected == 0) return ResponseEntity.badRequest().body("No rows deleted");
@@ -146,7 +143,7 @@ public class RowMutationController {
             logger.info("AUDIT DELETE_ROW user='" + currentUser() + "' group=" + group + " db=" + database + " table=" + table + " pk=" + pk + " pkValue=" + pkValue);
             metrics.recordCrudOperation("delete", table);
             return ResponseEntity.ok("Row deleted successfully");
-        } catch (ConnectionDetailNotFound | SQLException | ClassNotFoundException e) {
+        } catch (ConnectionDetailNotFound | SQLException e) {
             logger.error("Delete row error: " + e.getMessage(), e);
             return ResponseEntity.internalServerError().body(e.getMessage());
         }

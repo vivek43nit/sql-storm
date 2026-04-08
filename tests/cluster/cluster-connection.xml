@@ -1,0 +1,12 @@
+<!-- DatabaseConnection.xml for cluster test.
+     Defines the clustertest database so relations loaded from relation_mapping
+     can be applied and served by the /api/admin/relations endpoint. -->
+<CONNECTIONS CONNECTION_EXPIRY_TIME="3600000" MAX_RETRY_COUNT="1">
+
+    <CONNECTION ID="1" GROUP="cluster" DB_NAME="clustertest"
+                USER_NAME="fkblitz" PASSWORD="fkblitz123"
+                DRIVER_CLASS_NAME="org.mariadb.jdbc.Driver"
+                DATABASE_URL="jdbc:mariadb://mariadb:3306/clustertest?useInformationSchema=true"
+                UPDATABLE="true" DELETABLE="true"/>
+
+</CONNECTIONS>

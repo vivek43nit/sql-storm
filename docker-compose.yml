@@ -2,9 +2,9 @@ services:
   fkblitz:
     build: .
     ports:
-      - "9044:9044"
+      - "${FKBLITZ_PORT:-9044}:9044"
     volumes:
-      - ./backend/src/main/resources/DatabaseConnection.xml:/etc/fkblitz/DatabaseConnection.xml:ro
+      - ./docker/fkblitz/DatabaseConnection.xml:/etc/fkblitz/DatabaseConnection.xml:ro
     environment:
       FKBLITZ_ADMIN_USER: ${FKBLITZ_ADMIN_USER:-admin}
       FKBLITZ_ADMIN_PASSWORD: ${FKBLITZ_ADMIN_PASSWORD:-changeme}
@@ -13,16 +13,21 @@ services:
       FKBLITZ_REDIS_HOST: redis
       FKBLITZ_REDIS_PORT: 6379
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-}
+      # Resource ceilings — set high for capacity benchmarking, tune down based on k6-capacity results
+      FKBLITZ_MAX_POOL_SIZE: ${FKBLITZ_MAX_POOL_SIZE:-100}
+      FKBLITZ_TOMCAT_THREADS_MAX: ${FKBLITZ_TOMCAT_THREADS_MAX:-400}
+      FKBLITZ_TOMCAT_THREADS_MIN: ${FKBLITZ_TOMCAT_THREADS_MIN:-10}
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--Xms256m -Xmx1g}
     depends_on:
       - mariadb
       - redis
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9044/fkblitz/actuator/health/liveness"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9044/fkblitz/actuator/health/liveness || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 40s
+      start_period: 60s
 
   # Optional: sample MariaDB for trying FkBlitz locally
   # Remove this block if you're connecting to an existing database
@@ -37,6 +42,7 @@ services:
       - "3306:3306"
     volumes:
       - mariadb_data:/var/lib/mysql
+      - ./docker/mariadb/init:/docker-entrypoint-initdb.d:ro
 
   redis:
     image: redis:7-alpine
