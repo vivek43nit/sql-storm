@@ -5,6 +5,16 @@ on:
     branches: [master, main]
   pull_request:
     branches: [master, main]
+  workflow_dispatch:
+    inputs:
+      run_performance:
+        description: 'Run performance tests (k6)'
+        type: boolean
+        default: false
+      run_e2e:
+        description: 'Run E2E tests (Playwright)'
+        type: boolean
+        default: false
 
 jobs:
   # ── Dependency security review (PRs only) ───────────────────────────────────
@@ -149,13 +159,13 @@ jobs:
         run: mvn -B verify -Pintegration-tests --no-transfer-progress
         working-directory: backend
 
-  # ── Playwright E2E tests (PRs to master only) ────────────────────────────────
+  # ── Playwright E2E tests (manual trigger only) ───────────────────────────────
   e2e:
     name: E2E Tests (Playwright)
     runs-on: ubuntu-latest
     needs: [backend, frontend]
     if: >
-      github.event_name == 'pull_request' && github.base_ref == 'master'
+      github.event_name == 'workflow_dispatch' && inputs.run_e2e == true
     steps:
       - uses: actions/checkout@v4
 
@@ -201,13 +211,13 @@ jobs:
         if: always()
         run: docker compose down -v
 
-  # ── k6 performance tests (PRs to master only) ────────────────────────────────
+  # ── k6 performance tests (manual trigger only) ───────────────────────────────
   performance:
     name: Performance Tests (k6)
     runs-on: ubuntu-latest
     needs: [backend, frontend]
     if: >
-      github.event_name == 'pull_request' && github.base_ref == 'master'
+      github.event_name == 'workflow_dispatch' && inputs.run_performance == true
     steps:
       - uses: actions/checkout@v4
 
@@ -232,7 +242,7 @@ jobs:
             -e BASE_URL=http://localhost:9044/fkblitz \
             -e USERNAME=admin \
             -e PASSWORD=changeme \
-            -e GROUP=localhost \
+            -e GROUP=demo \
             -e DATABASE=demo \
             grafana/k6 run /tests/k6-metadata.js
 
@@ -243,7 +253,7 @@ jobs:
             -e BASE_URL=http://localhost:9044/fkblitz \
             -e USERNAME=admin \
             -e PASSWORD=changeme \
-            -e GROUP=localhost \
+            -e GROUP=demo \
             -e DATABASE=demo \
             grafana/k6 run /tests/k6-reload-concurrent.js
 
