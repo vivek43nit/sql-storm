@@ -9,11 +9,14 @@ Three k6 scripts covering the most latency-sensitive paths.
 
 ## Scripts
 
-| Script | VUs | Duration | What it tests |
-|---|---|---|---|
-| `k6-metadata.js` | 50 | 6.5 min | Metadata read throughput (groups + tables endpoints) |
-| `k6-auth.js` | 10→100 | 2 min | Auth latency + rate-limit enforcement |
-| `k6-reload-concurrent.js` | 50 | 5 min | CME safety: concurrent metadata reads + relation traversal |
+| Script | VUs | Duration | What it tests | JDBC pool exercised? |
+|---|---|---|---|---|
+| `k6-metadata.js` | 50 | 6.5 min | Metadata read throughput (groups + tables endpoints) | ❌ in-memory only |
+| `k6-auth.js` | 10→100 | 2 min | Auth latency + rate-limit enforcement | ❌ auth pool only |
+| `k6-reload-concurrent.js` | 50 | 5 min | CME safety: concurrent metadata reads + relation traversal | ❌ in-memory only |
+| `k6-query.js` | 10→100 | 7 min | Real SQL execution — SELECT, JOIN, FK references | ✅ data pool |
+| `k6-capacity.js` | 10→200 | ~16 min | VU ladder for resource sizing (metadata path) | ❌ in-memory only |
+| `k6-verify.js` | 200 | 5 min | Steady-state validation at recommended config | ❌ in-memory only |
 
 ## Running
 
@@ -49,9 +52,40 @@ docker run --rm --network host \
 | `k6-reload-concurrent.js` | 50 | 130,522 | 2.24ms | **5.48ms** | — | 0.00% | ✓ PASS |
 
 **Notes:**
-- Metadata endpoint is in-memory (snapshotRef reads) — sub-3ms p95 at 50 VUs is expected.
+- Metadata endpoint is in-memory (snapshotRef reads) — sub-3ms p95 at 50 VUs is expected. **These scripts do not exercise the JDBC data pool.**
 - Auth p95 at 100 VUs is high (~5s) because no sleep between iterations; real users don't hammer login 100× concurrently. Zero 5xx confirms auth is stable under extreme load.
 - Concurrent test (130k requests, 50 VUs, 435 req/s) produced zero CME/NPE — thread-safe snapshot swap validated.
+
+### SQL Query Baselines (`k6-query.js`)
+
+The only script that actually borrows JDBC connections from the data pool (40% simple SELECT, 40% JOIN, 20% FK references navigation).
+
+> Measured on Apple M-series (local Docker stack, MariaDB). Captured: 2026-04-08.
+> Config: `FKBLITZ_MAX_POOL_SIZE=100`, `FKBLITZ_TOMCAT_THREADS_MAX=400`, `-Xmx1g`. Ramp 10→100 VUs, `sleep(0.5)`.
+
+| Endpoint | p50 | p95 | Errors | JDBC active max | JDBC pending max |
+|---|---|---|---|---|---|
+| Simple SELECT (`users LIMIT 20`) | 27ms | **553ms** | 0.00% | 7 | 0 |
+| JOIN SELECT (orders + users) | 28ms | **586ms** | 0.00% | 7 | 0 |
+| FK references (`/api/references`) | 28ms | **653ms** | 0.00% | 7 | 0 |
+
+**Resource usage at 100 VUs with real SQL:**
+
+| Metric | Max | Avg | Ceiling |
+|---|---|---|---|
+| JDBC active (data pool) | 7 | 1.2 | 100 |
+| JDBC pending | 0 | 0 | — |
+| JDBC acquire latency | 14.5ms | — | — |
+| Tomcat threads busy | 22 | 4.1 | 400 |
+| JVM heap | 178 MB | 113 MB | 1024 MB |
+
+**Confirmed production config for SQL-heavy workloads at 100 VUs:**
+
+| Setting | Value | Basis |
+|---|---|---|
+| `FKBLITZ_MAX_POOL_SIZE` | 10 | Max 7 active, 0 pending — no contention |
+| `FKBLITZ_TOMCAT_THREADS_MAX` | 50 | Max 22 busy (6% utilization) |
+| `-Xmx` | 256m | 178 MB peak, 256 MB gives safe headroom |
 
 ## Capacity Benchmarking (Resource vs. Concurrency)
 
