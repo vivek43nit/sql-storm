@@ -1,6 +1,6 @@
 # Capacity Benchmarking Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Register every fkblitz HikariCP pool with Micrometer under a distinct, meaningful name; expose Tomcat thread metrics; then run a VU-ladder k6 benchmark that produces a config recommendation table.
 
@@ -66,7 +66,7 @@ All HikariCP pools must follow: `fkblitz-{role}-{qualifier}`
 
 Remove the two custom connection gauges and `DatabaseConnectionManager` dependency. HikariCP's native Micrometer integration now provides per-pool metrics labeled by `pool` tag.
 
-- [ ] **Step 1: Rewrite FkBlitzMetrics.java**
+- [x] **Step 1: Rewrite FkBlitzMetrics.java**
 
 ```java
 package com.vivek.metrics;
@@ -145,7 +145,7 @@ public class FkBlitzMetrics {
 }
 ```
 
-- [ ] **Step 2: Verify compile**
+- [x] **Step 2: Verify compile**
 
 ```bash
 cd backend && mvn compile -q 2>&1 | tail -3
@@ -161,7 +161,7 @@ Expected: `BUILD SUCCESS`
 
 Change the default from `5` (a magic number also used as the hardcoded DTO value) to `-1` (unambiguous sentinel for "not set — use global default"). Positive value always means explicit per-connection override.
 
-- [ ] **Step 1: Change default in ConnectionDTO**
+- [x] **Step 1: Change default in ConnectionDTO**
 
 Find:
 ```java
@@ -172,7 +172,7 @@ Replace with:
 private int maxPoolSize = -1;
 ```
 
-- [ ] **Step 2: Update the condition in DatabaseConnectionManager.createDataSource()**
+- [x] **Step 2: Update the condition in DatabaseConnectionManager.createDataSource()**
 
 Find:
 ```java
@@ -183,7 +183,7 @@ Replace with:
 int poolSize = (config.getMaxPoolSize() > 0) ? config.getMaxPoolSize() : defaultMaxPoolSize;
 ```
 
-- [ ] **Step 3: Verify compile**
+- [x] **Step 3: Verify compile**
 
 ```bash
 mvn compile -q 2>&1 | tail -3
@@ -199,7 +199,7 @@ Expected: `BUILD SUCCESS`
 
 Three changes: (1) rename pool to `fkblitz-data-{group}-{db}`; (2) attach `MicrometerMetricsTrackerFactory` on creation; (3) deregister meters before closing a pool to prevent stale metrics and duplicate-registration bugs on re-creation.
 
-- [ ] **Step 1: Update `createDataSource()` — rename pool and wire tracker**
+- [x] **Step 1: Update `createDataSource()` — rename pool and wire tracker**
 
 ```java
 private HikariDataSource createDataSource(ConnectionDTO config) {
@@ -221,7 +221,7 @@ private HikariDataSource createDataSource(ConnectionDTO config) {
 }
 ```
 
-- [ ] **Step 2: Add `deregisterPoolMetrics()` method**
+- [x] **Step 2: Add `deregisterPoolMetrics()` method**
 
 Add after `createDataSource()`:
 
@@ -239,7 +239,7 @@ private void deregisterPoolMetrics(String poolName) {
 }
 ```
 
-- [ ] **Step 3: Call `deregisterPoolMetrics` in `reloadConnections()` — removal case**
+- [x] **Step 3: Call `deregisterPoolMetrics` in `reloadConnections()` — removal case**
 
 Find:
 ```java
@@ -267,7 +267,7 @@ connectionMap.forEach((group, dbs) ->
     }));
 ```
 
-- [ ] **Step 4: Call `deregisterPoolMetrics` in `reloadConnections()` — credential-change case**
+- [x] **Step 4: Call `deregisterPoolMetrics` in `reloadConnections()` — credential-change case**
 
 Find:
 ```java
@@ -285,7 +285,7 @@ Replace with:
     log.info("Updated connection details group={} db={}", dto.getGroup(), dto.getDbName());
 ```
 
-- [ ] **Step 5: Verify compile**
+- [x] **Step 5: Verify compile**
 
 ```bash
 mvn compile -q 2>&1 | tail -3
@@ -303,7 +303,7 @@ Expected: `BUILD SUCCESS`
 
 Both loaders create their own HikariCP pools (max 2, for config polling). Add `@Nullable MeterRegistry` as the last constructor parameter, rename pools, wire tracker factory. Then pass the registry from `ConfigLoaderConfig`.
 
-- [ ] **Step 1: Update DbConfigLoader constructor**
+- [x] **Step 1: Update DbConfigLoader constructor**
 
 Add import at top of `DbConfigLoader.java`:
 ```java
@@ -342,7 +342,7 @@ public DbConfigLoader(String jdbcUrl,
 }
 ```
 
-- [ ] **Step 2: Update RelationRowDbLoader constructor**
+- [x] **Step 2: Update RelationRowDbLoader constructor**
 
 Add same imports to `RelationRowDbLoader.java`, then:
 
@@ -365,7 +365,7 @@ public RelationRowDbLoader(String jdbcUrl, String username, String password,
 }
 ```
 
-- [ ] **Step 3: Update ConfigLoaderConfig — pass MeterRegistry to both @Bean methods**
+- [x] **Step 3: Update ConfigLoaderConfig — pass MeterRegistry to both @Bean methods**
 
 Add import:
 ```java
@@ -422,7 +422,7 @@ public ConfigLoaderStrategy<CustomRelationConfig> customMappingConfigLoader(
     }
 ```
 
-- [ ] **Step 4: Verify compile**
+- [x] **Step 4: Verify compile**
 
 ```bash
 mvn compile -q 2>&1 | tail -3
@@ -435,7 +435,7 @@ Expected: `BUILD SUCCESS`
 
 **Files:** 8 test files (see file map)
 
-- [ ] **Step 1: Fix DatabaseConnectionManager tests (5 files) — add null as 3rd arg**
+- [x] **Step 1: Fix DatabaseConnectionManager tests (5 files) — add null as 3rd arg**
 
 ```bash
 sed -i '' 's/new DatabaseConnectionManager(loader, 5)/new DatabaseConnectionManager(loader, 5, null)/g' \
@@ -448,7 +448,7 @@ sed -i '' 's/new DatabaseConnectionManager(connLoader, 5)/new DatabaseConnection
   backend/src/test/java/com/vivek/sqlstorm/metadata/DatabaseMetaDataManagerTest.java
 ```
 
-- [ ] **Step 2: Fix DbConfigLoader tests (3 callsites) — add null as last arg**
+- [x] **Step 2: Fix DbConfigLoader tests (3 callsites) — add null as last arg**
 
 ```bash
 # DbConfigLoaderTest.java has 3 callsites — add null after the parser arg
@@ -464,7 +464,7 @@ new DbConfigLoader<>(JDBC_URL, USER, PASS, TABLE, COLUMN, "json", parser)
 new DbConfigLoader<>(JDBC_URL, USER, PASS, TABLE, COLUMN, "json", parser, null)
 ```
 
-- [ ] **Step 3: Fix RelationRowDbLoader tests (2 callsites) — add null as last arg**
+- [x] **Step 3: Fix RelationRowDbLoader tests (2 callsites) — add null as last arg**
 
 ```bash
 sed -i '' 's/new RelationRowDbLoader(JDBC_URL, USER, PASS, TABLE)/new RelationRowDbLoader(JDBC_URL, USER, PASS, TABLE, null)/g' \
@@ -472,21 +472,21 @@ sed -i '' 's/new RelationRowDbLoader(JDBC_URL, USER, PASS, TABLE)/new RelationRo
   backend/src/test/java/com/vivek/sqlstorm/config/loader/RelationRowDbLoaderMariaDbTest.java
 ```
 
-- [ ] **Step 4: Clean compile of main + tests**
+- [x] **Step 4: Clean compile of main + tests**
 
 ```bash
 mvn clean test-compile 2>&1 | grep -E "BUILD|ERROR" | tail -5
 ```
 Expected: `BUILD SUCCESS`
 
-- [ ] **Step 5: Run unit tests (no Docker)**
+- [x] **Step 5: Run unit tests (no Docker)**
 
 ```bash
 mvn test -Dtest="!*MariaDb*,!*ContainerTest*" 2>&1 | grep -E "Tests run|BUILD|FAIL" | tail -10
 ```
 Expected: all pass, `BUILD SUCCESS`
 
-- [ ] **Step 6: Commit Tasks 1–5**
+- [x] **Step 6: Commit Tasks 1–5**
 
 ```bash
 git add backend/src/main/java/com/vivek/metrics/FkBlitzMetrics.java \
@@ -506,7 +506,7 @@ git commit -m "feat(metrics): register all HikariCP pools with Micrometer; disti
 **Files:**
 - Modify: `backend/src/main/resources/application.yml`
 
-- [ ] **Step 1: Add H2 auth pool name under `spring.datasource`**
+- [x] **Step 1: Add H2 auth pool name under `spring.datasource`**
 
 Find:
 ```yaml
@@ -522,7 +522,7 @@ Add below `password:`:
       pool-name: fkblitz-auth
 ```
 
-- [ ] **Step 2: Add `mbeanregistry.enabled` under `server.tomcat`**
+- [x] **Step 2: Add `mbeanregistry.enabled` under `server.tomcat`**
 
 Find:
 ```yaml
@@ -541,14 +541,14 @@ Add:
       enabled: true
 ```
 
-- [ ] **Step 3: Verify compile**
+- [x] **Step 3: Verify compile**
 
 ```bash
 mvn compile -q 2>&1 | tail -3
 ```
 Expected: `BUILD SUCCESS`
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add backend/src/main/resources/application.yml
@@ -561,14 +561,14 @@ git commit -m "feat(metrics): name H2 auth pool fkblitz-auth; enable Tomcat MBea
 
 **Files:** none
 
-- [ ] **Step 1: Build and restart on port 9071**
+- [x] **Step 1: Build and restart on port 9071**
 
 ```bash
 docker compose build fkblitz 2>&1 | tail -5
 FKBLITZ_PORT=9071 docker compose up -d --force-recreate fkblitz
 ```
 
-- [ ] **Step 2: Wait for healthy**
+- [x] **Step 2: Wait for healthy**
 
 ```bash
 for i in $(seq 1 18); do
@@ -578,7 +578,7 @@ done
 ```
 Expected: `UP` within 90s
 
-- [ ] **Step 3: Trigger a query to activate the data pool**
+- [x] **Step 3: Trigger a query to activate the data pool**
 
 ```bash
 curl -s -X POST http://localhost:9071/fkblitz/api/login \
@@ -587,7 +587,7 @@ curl -s "http://localhost:9071/fkblitz/api/tables?group=demo&database=demo" \
   -b /tmp/cap.txt -o /dev/null
 ```
 
-- [ ] **Step 4: Verify all 5 pools appear in Prometheus**
+- [x] **Step 4: Verify all 5 pools appear in Prometheus**
 
 ```bash
 curl -s http://localhost:9071/fkblitz/actuator/prometheus | \
@@ -599,7 +599,7 @@ hikaricp_connections_max{...,pool="fkblitz-auth",...}              10.0
 hikaricp_connections_max{...,pool="fkblitz-data-demo-demo",...}   100.0
 ```
 
-- [ ] **Step 5: Verify Tomcat thread metrics**
+- [x] **Step 5: Verify Tomcat thread metrics**
 
 ```bash
 curl -s http://localhost:9071/fkblitz/actuator/prometheus | \
@@ -611,7 +611,7 @@ tomcat_threads_busy_threads{...}           N.0
 tomcat_threads_config_max_threads{...}   400.0
 ```
 
-- [ ] **Step 6: Verify Prometheus scrape is healthy**
+- [x] **Step 6: Verify Prometheus scrape is healthy**
 
 ```bash
 curl -s 'http://localhost:9090/api/v1/targets' | \
@@ -627,7 +627,7 @@ Expected: `http://fkblitz:9044/fkblitz/actuator/prometheus up`
 **Files:**
 - Modify: `tests/performance/capacity-poll.sh`
 
-- [ ] **Step 1: Replace the polling block with correct metric names**
+- [x] **Step 1: Replace the polling block with correct metric names**
 
 ```bash
   # Data pools only — excludes auth (fkblitz-auth) and config pools (fkblitz-config-*)
@@ -641,7 +641,7 @@ Expected: `http://fkblitz:9044/fkblitz/actuator/prometheus up`
     python3 -c "import sys; v=sys.stdin.read().strip(); print(f'{float(v)/1048576:.1f}' if v else '0')" 2>/dev/null || echo "0")
 ```
 
-- [ ] **Step 2: Smoke-test (3 polls, then Ctrl-C)**
+- [x] **Step 2: Smoke-test (3 polls, then Ctrl-C)**
 
 ```bash
 bash tests/performance/capacity-poll.sh 2>/dev/null | head -4
@@ -652,7 +652,7 @@ timestamp,hikari_active,hikari_max,tomcat_busy,tomcat_max,heap_mb,heap_max_mb
 2026-...,0,100,5,400,280.1,1024.0
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add tests/performance/capacity-poll.sh
@@ -665,7 +665,7 @@ git commit -m "feat(perf): fix capacity-poll.sh metric names for fkblitz pool co
 
 **Files:** none
 
-- [ ] **Step 1: Start Prometheus polling in background**
+- [x] **Step 1: Start Prometheus polling in background**
 
 ```bash
 bash tests/performance/capacity-poll.sh > /tmp/capacity-metrics.csv &
@@ -673,7 +673,7 @@ POLL_PID=$!
 echo "Polling PID: $POLL_PID"
 ```
 
-- [ ] **Step 2: Run k6 VU ladder (~16 min)**
+- [x] **Step 2: Run k6 VU ladder (~16 min)**
 
 ```bash
 docker run --rm --network host \
@@ -681,24 +681,24 @@ docker run --rm --network host \
   grafana/k6 run /tests/k6-capacity.js 2>&1 | tee /tmp/capacity-k6.txt
 ```
 
-- [ ] **Step 3: Stop polling**
+- [x] **Step 3: Stop polling**
 
 ```bash
 kill $POLL_PID
 ```
 
-- [ ] **Step 4: Generate report**
+- [x] **Step 4: Generate report**
 
 ```bash
 bash tests/performance/capacity-report.sh /tmp/capacity-metrics.csv /tmp/capacity-k6.txt
 ```
 Expected: watermark table + recommended `FKBLITZ_MAX_POOL_SIZE`, `FKBLITZ_TOMCAT_THREADS_MAX`, `-Xmx`.
 
-- [ ] **Step 5: Update README baselines**
+- [x] **Step 5: Update README baselines**
 
 Fill in `tests/performance/README.md` with measured p50/p95/p99 values from `/tmp/capacity-k6.txt`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add tests/performance/README.md

@@ -123,13 +123,13 @@ FkBlitz ships a full test pyramid — from fast unit tests up to multi-node clus
     /------------\
    /  Integration \  Real MariaDB via Testcontainers
   /----------------\
- /    Unit (233+)   \ controllers, services, config loaders  (JUnit 5 + Mockito)
+ /    Unit (245+)   \ controllers, services, config loaders  (JUnit 5 + Mockito)
 /--------------------\
 ```
 
 | Layer | Count | Tech | CI gate |
 |---|---|---|---|
-| Unit + MockMvc | 233+ | JUnit 5, Mockito, AssertJ | All PRs — 80% JaCoCo enforced |
+| Unit + MockMvc | 245+ | JUnit 5, Mockito, AssertJ | All PRs — 80% JaCoCo enforced |
 | Security regression | 12 cases | MockMvc | All PRs |
 | Real-DB integration | 30+ | Testcontainers MariaDB 11 | `mvn verify -Pintegration-tests` |
 | Cluster (multi-node) | 1 scenario | Docker Compose + bash | Push to `master` |
