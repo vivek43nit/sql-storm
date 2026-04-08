@@ -22,6 +22,18 @@
         <lombok.version>1.18.36</lombok.version>
     </properties>
 
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers-bom</artifactId>
+                <version>1.20.4</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -150,6 +162,16 @@
             <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>mariadb</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -236,6 +258,16 @@
                 </executions>
             </plugin>
 
+            <!-- Exclude @Tag("integration") from the default test run.
+                 Use -Pintegration-tests to include them (requires Docker). -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <excludedGroups>integration</excludedGroups>
+                </configuration>
+            </plugin>
+
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>versions-maven-plugin</artifactId>
@@ -259,5 +291,37 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!--
+            integration-tests profile — runs @Tag("integration") tests in addition to unit tests.
+            Requires Docker to be running (Testcontainers pulls mariadb:11 on first run).
+
+            Usage:
+              mvn verify -Pintegration-tests
+              mvn test  -Pintegration-tests -Dgroups=integration
+        -->
+        <profile>
+            <id>integration-tests</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration combine.self="override">
+                            <!-- Run ONLY @Tag("integration") tests — completely replaces
+                                 the base config so excludedGroups=integration is NOT inherited -->
+                            <groups>integration</groups>
+                            <!-- Colima (macOS Docker alternative) requires Docker API >= 1.44.
+                                 docker-java defaults to negotiating with 1.32 which Colima rejects.
+                                 'api.version' is the docker-java system-property key for the API version.
+                                 In CI (ubuntu-latest standard Docker) this is harmless. -->
+                            <argLine>-Dapi.version=1.44 ${argLine}</argLine>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 
 </project>

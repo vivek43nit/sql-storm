@@ -1,0 +1,90 @@
+# Enterprise cluster test: 2 FkBlitz nodes + shared Redis + MariaDB
+# Validates that config changes propagate via Redis pub/sub to all nodes.
+#
+# Usage:
+#   bash tests/cluster/cluster_test.sh
+#
+# Prerequisites: Docker + Docker Compose v2, jq
+
+services:
+  mariadb:
+    image: mariadb:11
+    environment:
+      MARIADB_ROOT_PASSWORD: rootpass
+      MARIADB_DATABASE: clustertest
+      MARIADB_USER: fkblitz
+      MARIADB_PASSWORD: fkblitz123
+    volumes:
+      - ./seed.sql:/docker-entrypoint-initdb.d/seed.sql:ro
+    healthcheck:
+      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost", "-u", "root", "-prootpass"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 20s
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  fkblitz-node1:
+    build:
+      context: ../..
+    ports:
+      - "9044:9044"
+    volumes:
+      - ./cluster-connection.xml:/etc/fkblitz/DatabaseConnection.xml:ro
+    environment:
+      FKBLITZ_ADMIN_USER: admin
+      FKBLITZ_ADMIN_PASSWORD: changeme
+      FKBLITZ_REDIS_ENABLED: "true"
+      FKBLITZ_REDIS_HOST: redis
+      FKBLITZ_REDIS_PORT: "6379"
+      SPRING_PROFILES_ACTIVE: prod
+      FKBLITZ_CONFIG_CUSTOM_MAPPING_SOURCE: relation-table
+      FKBLITZ_CONFIG_CUSTOM_MAPPING_RELATION_TABLE_JDBC_URL: jdbc:mariadb://mariadb:3306/clustertest
+      FKBLITZ_CONFIG_CUSTOM_MAPPING_RELATION_TABLE_USERNAME: fkblitz
+      FKBLITZ_CONFIG_CUSTOM_MAPPING_RELATION_TABLE_PASSWORD: fkblitz123
+      FKBLITZ_CONFIG_REFRESH_INTERVAL_SECONDS: "10"
+    depends_on:
+      mariadb: { condition: service_healthy }
+      redis:   { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:9044/fkblitz/actuator/health/liveness"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  fkblitz-node2:
+    build:
+      context: ../..
+    ports:
+      - "9045:9044"
+    volumes:
+      - ./cluster-connection.xml:/etc/fkblitz/DatabaseConnection.xml:ro
+    environment:
+      FKBLITZ_ADMIN_USER: admin
+      FKBLITZ_ADMIN_PASSWORD: changeme
+      FKBLITZ_REDIS_ENABLED: "true"
+      FKBLITZ_REDIS_HOST: redis
+      FKBLITZ_REDIS_PORT: "6379"
+      SPRING_PROFILES_ACTIVE: prod
+      FKBLITZ_CONFIG_CUSTOM_MAPPING_SOURCE: relation-table
+      FKBLITZ_CONFIG_CUSTOM_MAPPING_RELATION_TABLE_JDBC_URL: jdbc:mariadb://mariadb:3306/clustertest
+      FKBLITZ_CONFIG_CUSTOM_MAPPING_RELATION_TABLE_USERNAME: fkblitz
+      FKBLITZ_CONFIG_CUSTOM_MAPPING_RELATION_TABLE_PASSWORD: fkblitz123
+      FKBLITZ_CONFIG_REFRESH_INTERVAL_SECONDS: "10"
+    depends_on:
+      mariadb: { condition: service_healthy }
+      redis:   { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:9044/fkblitz/actuator/health/liveness"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s

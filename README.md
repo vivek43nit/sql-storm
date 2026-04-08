@@ -3,6 +3,8 @@
 ### _Blitz through your database by following foreign keys._
 
 [![CI](https://github.com/vivek43nit/fkblitz/actions/workflows/ci.yml/badge.svg)](https://github.com/vivek43nit/fkblitz/actions/workflows/ci.yml)
+[![E2E Tests](https://github.com/vivek43nit/fkblitz/actions/workflows/ci.yml/badge.svg?event=pull_request&label=E2E)](https://github.com/vivek43nit/fkblitz/actions/workflows/ci.yml)
+[![Cluster Test](https://github.com/vivek43nit/fkblitz/actions/workflows/ci.yml/badge.svg?branch=master&label=Cluster)](https://github.com/vivek43nit/fkblitz/actions/workflows/ci.yml)
 [![Java](https://img.shields.io/badge/Java-17%2B-blue)](https://adoptium.net/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3-6DB33F)](https://spring.io/projects/spring-boot)
 [![React](https://img.shields.io/badge/Frontend-React%2018-61DAFB)](https://react.dev/)
@@ -109,17 +111,70 @@ fkblitz/
 
 ---
 
-## Testing
+## Enterprise Testing
 
-```sh
-# Backend — runs all tests and enforces 80% JaCoCo line coverage
-cd backend && mvn verify
+FkBlitz ships a full test pyramid — from fast unit tests up to multi-node cluster validation and browser E2E flows.
 
-# Frontend — runs Vitest unit tests
-cd frontend && npm test
+```
+        /\
+       /E2E\         3 flows — auth, browse, query  (Playwright/Chromium)
+      /------\
+     / Cluster \     Redis pub/sub multi-node propagation  (Docker Compose)
+    /------------\
+   /  Integration \  Real MariaDB via Testcontainers
+  /----------------\
+ /    Unit (233+)   \ controllers, services, config loaders  (JUnit 5 + Mockito)
+/--------------------\
 ```
 
-The backend test suite covers controllers, services, parsers, data handlers, config loaders, and infrastructure utilities (22 test classes, 100+ tests). JaCoCo enforces ≥80% line coverage on all business-logic classes; the check fails the build if the threshold is not met.
+| Layer | Count | Tech | CI gate |
+|---|---|---|---|
+| Unit + MockMvc | 233+ | JUnit 5, Mockito, AssertJ | All PRs — 80% JaCoCo enforced |
+| Security regression | 12 cases | MockMvc | All PRs |
+| Real-DB integration | 30+ | Testcontainers MariaDB 11 | `mvn verify -Pintegration-tests` |
+| Cluster (multi-node) | 1 scenario | Docker Compose + bash | Push to `master` |
+| Performance | 3 scripts | k6 (via Docker) | PRs to `master` |
+| E2E (browser) | 3 flows | Playwright (Chromium) | PRs to `master` |
+
+### Performance Baselines
+
+| Endpoint | p50 | p95 | p99 | VUs |
+|---|---|---|---|---|
+| `GET /api/tables` | — | < 500ms | < 1s | 50 |
+| `POST /api/login` | — | < 200ms | < 500ms | 100 |
+| Concurrent reload | — | < 500ms | < 1s | 50 |
+
+> Baselines are measured on first CI run and updated per release. Fill in after initial `k6` run.
+
+### How to Run Each Layer
+
+```sh
+# Fast unit + security regression (no Docker needed)
+cd backend && mvn test
+
+# Frontend unit + accessibility (axe-core)
+cd frontend && npm test
+
+# Real-DB integration tests (requires Docker for Testcontainers)
+cd backend && mvn verify -Pintegration-tests
+
+# Multi-node cluster test (requires Docker Compose + jq + mysql-client)
+bash tests/cluster/cluster_test.sh
+
+# Performance load tests (requires full stack running)
+docker compose up -d
+docker run --rm --network host \
+  -v "$(pwd)/tests/performance:/tests" \
+  -e BASE_URL=http://localhost:9044/fkblitz \
+  -e USERNAME=admin -e PASSWORD=changeme \
+  -e GROUP=localhost -e DATABASE=demo \
+  grafana/k6 run /tests/k6-metadata.js
+
+# Browser E2E tests (requires full stack running)
+docker compose up -d
+cd tests/e2e && npm install && npx playwright install chromium
+npx playwright test
+```
 
 ---
 

@@ -1,0 +1,4 @@
+<!-- DatabaseConnection.xml for cluster test — no managed DB connections needed;
+     the app uses RelationRowDbLoader for custom relations only. -->
+<CONNECTIONS CONNECTION_EXPIRY_TIME="3600000" MAX_RETRY_COUNT="1">
+</CONNECTIONS>
