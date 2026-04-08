@@ -32,10 +32,11 @@ import java.util.function.Consumer;
  * Loads custom FK relations from a dedicated {@code relation_mapping} table where
  * each row represents exactly one relation — no JSON blob.
  *
- * <p><b>Change detection:</b> {@code SELECT MAX(updated_at) FROM relation_mapping} is
- * issued on every {@link #refresh()} call. This is an O(1) index-only scan. Only when
- * the timestamp advances (or on first load) is the full row set re-fetched. Soft-deletes
- * ({@code is_active = 0}) bump {@code updated_at} and are therefore detected automatically.
+ * <p><b>Change detection:</b> {@code SELECT MAX(updated_at) … WHERE updated_at <= NOW() - INTERVAL 1 SECOND}
+ * is issued on every {@link #refresh()} call. This is an O(1) index-only scan. Only when
+ * the max timestamp advances is the full row set re-fetched. Soft-deletes ({@code is_active = 0})
+ * bump {@code updated_at} and are therefore detected automatically. The 1-second buffer is
+ * evaluated database-side to avoid JVM/DB timezone conversion issues.
  *
  * <p><b>Multi-node propagation:</b> After detecting a change, this loader publishes to
  * the Redis channel {@code fkblitz:config-changed} (if a {@link StringRedisTemplate} is
@@ -53,14 +54,24 @@ public class RelationRowDbLoader implements RefreshableConfigLoader<CustomRelati
 
     private static final Logger log = LoggerFactory.getLogger(RelationRowDbLoader.class);
 
+    /**
+     * Rows written within this many seconds are excluded from change detection and loading.
+     * Prevents the millisecond-boundary race where a write committed after our MAX query
+     * but within the same timestamp second would be silently missed on subsequent polls.
+     * Trade-off: detection latency increases by at most REFRESH_BUFFER_SECONDS.
+     */
+    static final int REFRESH_BUFFER_SECONDS = 1;
+
     private static final String SQL_MAX_UPDATED_AT =
-            "SELECT MAX(updated_at) FROM %s";
+            "SELECT MAX(updated_at) FROM %s"
+            + " WHERE updated_at <= NOW() - INTERVAL " + REFRESH_BUFFER_SECONDS + " SECOND";
 
     private static final String SQL_LOAD_RELATIONS =
             "SELECT database_name, table_name, column_name, " +
             "       ref_database_name, ref_table_name, ref_column_name, conditions_json " +
             "FROM %s " +
-            "WHERE is_active = 1 " +
+            "WHERE is_active = 1"
+            + " AND updated_at <= NOW() - INTERVAL " + REFRESH_BUFFER_SECONDS + " SECOND " +
             "ORDER BY database_name";
 
     private final String table;
@@ -174,7 +185,6 @@ public class RelationRowDbLoader implements RefreshableConfigLoader<CustomRelati
         try (Connection conn = dataSource.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
-
             while (rs.next()) {
                 String dbName       = rs.getString("database_name");
                 String tableName    = rs.getString("table_name");
