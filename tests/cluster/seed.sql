@@ -1,5 +1,41 @@
--- Cluster test seed: creates relation_mapping table used by RelationRowDbLoader
+-- Cluster test seed: creates tables for the cluster test database.
 -- Mounted into MariaDB via docker-entrypoint-initdb.d/ — runs automatically on first start.
+
+-- Tables that the custom relations reference (no FK constraints — the point is
+-- that FkBlitz overlays virtual relations from relation_mapping on top of the metadata)
+CREATE TABLE IF NOT EXISTS users (
+    id   BIGINT NOT NULL AUTO_INCREMENT,
+    name VARCHAR(100) NOT NULL,
+    PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS orders (
+    id      BIGINT NOT NULL AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    amount  DECIMAL(10,2),
+    PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Connection config table: stores the DatabaseConnection.xml content as a DB blob.
+-- FkBlitz nodes are configured with source=db to read connections from here,
+-- avoiding static file mounts in multi-node cluster deployments.
+CREATE TABLE IF NOT EXISTS fkblitz_connection_config (
+    id             INT         NOT NULL AUTO_INCREMENT,
+    config_content MEDIUMTEXT  NOT NULL,
+    PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO fkblitz_connection_config (config_content) VALUES (
+'<CONNECTIONS CONNECTION_EXPIRY_TIME="3600000" MAX_RETRY_COUNT="1">
+    <CONNECTION ID="1" GROUP="cluster" DB_NAME="clustertest"
+                USER_NAME="fkblitz" PASSWORD="fkblitz123"
+                DRIVER_CLASS_NAME="org.mariadb.jdbc.Driver"
+                DATABASE_URL="jdbc:mariadb://mariadb:3306/clustertest?useInformationSchema=true"
+                UPDATABLE="true" DELETABLE="true"/>
+</CONNECTIONS>'
+);
+
+-- Relation mapping table used by RelationRowDbLoader
 
 CREATE TABLE IF NOT EXISTS relation_mapping (
     id                BIGINT          NOT NULL AUTO_INCREMENT,

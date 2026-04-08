@@ -9,6 +9,8 @@
 services:
   mariadb:
     image: mariadb:11
+    ports:
+      - "3307:3306"
     environment:
       MARIADB_ROOT_PASSWORD: rootpass
       MARIADB_DATABASE: clustertest
@@ -35,9 +37,7 @@ services:
     build:
       context: ../..
     ports:
-      - "9044:9044"
-    volumes:
-      - ./cluster-connection.xml:/etc/fkblitz/DatabaseConnection.xml:ro
+      - "9061:9044"
     environment:
       FKBLITZ_ADMIN_USER: admin
       FKBLITZ_ADMIN_PASSWORD: changeme
@@ -45,11 +45,21 @@ services:
       FKBLITZ_REDIS_HOST: redis
       FKBLITZ_REDIS_PORT: "6379"
       SPRING_PROFILES_ACTIVE: prod
+      # Connection config loaded from DB table (enterprise cluster mode)
+      FKBLITZ_CONFIG_CONNECTION_SOURCE: db
+      FKBLITZ_CONFIG_CONNECTION_DB_URL: jdbc:mariadb://mariadb:3306/clustertest
+      FKBLITZ_CONFIG_CONNECTION_DB_USERNAME: fkblitz
+      FKBLITZ_CONFIG_CONNECTION_DB_PASSWORD: fkblitz123
+      FKBLITZ_CONFIG_CONNECTION_DB_TABLE: fkblitz_connection_config
+      FKBLITZ_CONFIG_CONNECTION_DB_COLUMN: config_content
+      FKBLITZ_CONFIG_CONNECTION_DB_FORMAT: xml
+      # Custom relation mapping from DB table (polls every 10s)
       FKBLITZ_CONFIG_CUSTOM_MAPPING_SOURCE: relation-table
-      FKBLITZ_CONFIG_CUSTOM_MAPPING_RELATION_TABLE_JDBC_URL: jdbc:mariadb://mariadb:3306/clustertest
-      FKBLITZ_CONFIG_CUSTOM_MAPPING_RELATION_TABLE_USERNAME: fkblitz
-      FKBLITZ_CONFIG_CUSTOM_MAPPING_RELATION_TABLE_PASSWORD: fkblitz123
-      FKBLITZ_CONFIG_REFRESH_INTERVAL_SECONDS: "10"
+      FKBLITZ_CONFIG_CUSTOM_MAPPING_DB_URL: jdbc:mariadb://mariadb:3306/clustertest
+      FKBLITZ_CONFIG_CUSTOM_MAPPING_DB_USERNAME: fkblitz
+      FKBLITZ_CONFIG_CUSTOM_MAPPING_DB_PASSWORD: fkblitz123
+      FKBLITZ_CONFIG_CUSTOM_MAPPING_DB_TABLE: relation_mapping
+      FKBLITZ_CONFIG_CUSTOM_MAPPING_DB_REFRESH_INTERVAL_SECONDS: "10"
     depends_on:
       mariadb: { condition: service_healthy }
       redis:   { condition: service_healthy }
@@ -64,9 +74,7 @@ services:
     build:
       context: ../..
     ports:
-      - "9045:9044"
-    volumes:
-      - ./cluster-connection.xml:/etc/fkblitz/DatabaseConnection.xml:ro
+      - "9062:9044"
     environment:
       FKBLITZ_ADMIN_USER: admin
       FKBLITZ_ADMIN_PASSWORD: changeme
@@ -74,11 +82,21 @@ services:
       FKBLITZ_REDIS_HOST: redis
       FKBLITZ_REDIS_PORT: "6379"
       SPRING_PROFILES_ACTIVE: prod
+      # Connection config loaded from DB table (enterprise cluster mode)
+      FKBLITZ_CONFIG_CONNECTION_SOURCE: db
+      FKBLITZ_CONFIG_CONNECTION_DB_URL: jdbc:mariadb://mariadb:3306/clustertest
+      FKBLITZ_CONFIG_CONNECTION_DB_USERNAME: fkblitz
+      FKBLITZ_CONFIG_CONNECTION_DB_PASSWORD: fkblitz123
+      FKBLITZ_CONFIG_CONNECTION_DB_TABLE: fkblitz_connection_config
+      FKBLITZ_CONFIG_CONNECTION_DB_COLUMN: config_content
+      FKBLITZ_CONFIG_CONNECTION_DB_FORMAT: xml
+      # Custom relation mapping from DB table (polls every 10s)
       FKBLITZ_CONFIG_CUSTOM_MAPPING_SOURCE: relation-table
-      FKBLITZ_CONFIG_CUSTOM_MAPPING_RELATION_TABLE_JDBC_URL: jdbc:mariadb://mariadb:3306/clustertest
-      FKBLITZ_CONFIG_CUSTOM_MAPPING_RELATION_TABLE_USERNAME: fkblitz
-      FKBLITZ_CONFIG_CUSTOM_MAPPING_RELATION_TABLE_PASSWORD: fkblitz123
-      FKBLITZ_CONFIG_REFRESH_INTERVAL_SECONDS: "10"
+      FKBLITZ_CONFIG_CUSTOM_MAPPING_DB_URL: jdbc:mariadb://mariadb:3306/clustertest
+      FKBLITZ_CONFIG_CUSTOM_MAPPING_DB_USERNAME: fkblitz
+      FKBLITZ_CONFIG_CUSTOM_MAPPING_DB_PASSWORD: fkblitz123
+      FKBLITZ_CONFIG_CUSTOM_MAPPING_DB_TABLE: relation_mapping
+      FKBLITZ_CONFIG_CUSTOM_MAPPING_DB_REFRESH_INTERVAL_SECONDS: "10"
     depends_on:
       mariadb: { condition: service_healthy }
       redis:   { condition: service_healthy }
