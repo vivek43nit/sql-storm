@@ -73,27 +73,48 @@ bash tests/performance/capacity-report.sh /tmp/capacity-metrics.csv /tmp/capacit
 
 ### Capacity Baselines
 
-> Measured on Apple M-series (local dev stack, Docker). Captured: 2026-04-08.
-> Config: `FKBLITZ_MAX_POOL_SIZE=100`, `FKBLITZ_TOMCAT_THREADS_MAX=400`, `-Xmx1g`.
+> Measured on Apple M-series (local Docker stack). Captured: 2026-04-08.
+
+**Run 1 — Discovery (high ceiling config):**
+Config: `FKBLITZ_MAX_POOL_SIZE=100`, `FKBLITZ_TOMCAT_THREADS_MAX=400`, `-Xmx1g`.
+Script: `k6-capacity.js` (ramp 10→200 VUs, `sleep(0.5)` between requests).
 
 | Metric | Peak (200 VUs) | Ceiling |
 |---|---|---|
-| JDBC connections active | ~0 (returned sub-ms, poll missed) | 100 |
+| JDBC connections active | ~0 (sub-ms borrows, missed by 5s poll) | 100 |
 | Tomcat threads busy | 15 | 400 |
 | JVM heap | 198 MB | 1024 MB |
-| latency_groups p95 | 41ms | — |
-| latency_tables p95 | 41ms | — |
+| latency p95 | 41ms | — |
 | http_req_failed | 0.00% | — |
 
-**Recommended production config** (peak × 1.25, rounded):
+> Note: the 15-thread peak reflects burst behavior during the ramp, not steady-state at 200 VUs.
+> With `sleep(0.5)` and ~5ms requests, only ≈ 2 threads are active at any instant under steady load.
 
-| Setting | Value |
-|---|---|
-| `FKBLITZ_MAX_POOL_SIZE` | 10 |
-| `FKBLITZ_TOMCAT_THREADS_MAX` | 50 |
-| `-Xmx` | 256m |
+**Run 2 — Verification (recommended config, steady 200 VUs):**
+Config: `FKBLITZ_MAX_POOL_SIZE=10`, `FKBLITZ_TOMCAT_THREADS_MAX=50`, `-Xmx256m`.
+Script: `k6-verify.js` (200 VUs constant for 5 min, `sleep(0.1)` between requests).
 
-> Re-run after config change to validate the ceilings hold under your actual workload.
+| Metric | Peak | Ceiling | Result |
+|---|---|---|---|
+| JDBC connections active | ~0 | 10 | ✅ Pool correct |
+| Tomcat threads busy | **50/50** | 50 | ❌ Saturated — p95 degraded to 1.53s |
+| JVM heap | 102 MB | 256 MB | ✅ Heap correct |
+| http_req_failed | 0.00% | — | ✅ No errors |
+
+**Finding:** Tomcat thread count is the bottleneck at sustained 200 VUs. At `sleep(0.1)` per iteration,
+each VU issues ~10 req/s; 200 VUs = ~2,000 req/s. With 50 threads and ~630ms avg latency,
+the thread pool saturates (Little's Law: L = λW → 200 × 0.63s = 126 concurrent → needs ≥ 130 threads).
+
+**Corrected production config:**
+
+| Setting | Value | Rationale |
+|---|---|---|
+| `FKBLITZ_MAX_POOL_SIZE` | 10 | Confirmed — metadata reads are sub-ms; no pool exhaustion |
+| `FKBLITZ_TOMCAT_THREADS_MAX` | 200 | Match your expected peak concurrent users |
+| `-Xmx` | 256m | Confirmed — 102 MB peak at 200 VUs, 256 MB gives 2.5× headroom |
+
+> Rule of thumb: set `FKBLITZ_TOMCAT_THREADS_MAX` ≥ your peak concurrent active users.
+> Re-run `k6-verify.js` with the final config to validate before deploying to production.
 
 ## Auth Note
 

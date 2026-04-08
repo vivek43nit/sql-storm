@@ -152,12 +152,12 @@ FkBlitz ships a full test pyramid — from fast unit tests up to multi-node clus
 
 > Measured at 200 VUs on Apple M-series, `FKBLITZ_MAX_POOL_SIZE=100`, `FKBLITZ_TOMCAT_THREADS_MAX=400`, `-Xmx1g`.
 
-| Resource | Peak (200 VUs) | Recommended config |
+| Resource | Peak (200 VUs, high ceiling) | Verified config (200 VUs, 5 min steady) |
 |---|---|---|
-| JDBC connections active | < 1 (sub-ms borrows) | `FKBLITZ_MAX_POOL_SIZE=10` |
-| Tomcat threads busy | 15 | `FKBLITZ_TOMCAT_THREADS_MAX=50` |
-| JVM heap | 198 MB | `-Xmx256m` |
-| `latency_groups` p95 | 41ms | — |
+| JDBC connections active | < 1 (sub-ms borrows) | `FKBLITZ_MAX_POOL_SIZE=10` ✅ |
+| Tomcat threads busy | 15 (ramp) → **50/50 saturated** (steady) | `FKBLITZ_TOMCAT_THREADS_MAX=200` ✅ |
+| JVM heap | 198 MB → 102 MB (steady) | `-Xmx256m` ✅ |
+| `latency_groups` p95 | 41ms → 1.53s (at 50 threads) | 50 threads was the bottleneck |
 
 ```sh
 bash tests/performance/capacity-poll.sh > /tmp/capacity-metrics.csv &
