@@ -5,10 +5,13 @@ import com.vivek.sqlstorm.config.customrelation.DatabaseConfig;
 import com.vivek.sqlstorm.dto.ReferenceDTO;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
+import com.zaxxer.hikari.metrics.micrometer.MicrometerMetricsTrackerFactory;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.lang.Nullable;
 
 import java.io.Closeable;
 import java.sql.Connection;
@@ -71,7 +74,8 @@ public class RelationRowDbLoader implements RefreshableConfigLoader<CustomRelati
     /** Optional — injected by ConfigPropagationConfig for cross-node invalidation. */
     private volatile StringRedisTemplate redisTemplate;
 
-    public RelationRowDbLoader(String jdbcUrl, String username, String password, String table) {
+    public RelationRowDbLoader(String jdbcUrl, String username, String password,
+                               String table, @Nullable MeterRegistry meterRegistry) {
         this.table = table;
         HikariConfig hk = new HikariConfig();
         hk.setJdbcUrl(jdbcUrl);
@@ -80,7 +84,10 @@ public class RelationRowDbLoader implements RefreshableConfigLoader<CustomRelati
         hk.setMaximumPoolSize(2);
         hk.setMinimumIdle(1);
         hk.setConnectionTimeout(30_000);
-        hk.setPoolName("fkblitz-relation-cfg");
+        hk.setPoolName("fkblitz-config-relation");
+        if (meterRegistry != null) {
+            hk.setMetricsTrackerFactory(new MicrometerMetricsTrackerFactory(meterRegistry));
+        }
         this.dataSource = new HikariDataSource(hk);
     }
 

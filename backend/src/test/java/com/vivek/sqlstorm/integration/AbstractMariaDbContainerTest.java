@@ -56,6 +56,6 @@ public abstract class AbstractMariaDbContainerTest {
   protected static DatabaseConnectionManager singleConnectionManager(String group, String db) {
     ConnectionDTO dto = mariaDbDto(group, db, 1L);
     ConfigLoaderStrategy<ConnectionConfig> loader = () -> new ConnectionConfig(List.of(dto));
-    return new DatabaseConnectionManager(loader);
+    return new DatabaseConnectionManager(loader, 5, null);
   }
 }

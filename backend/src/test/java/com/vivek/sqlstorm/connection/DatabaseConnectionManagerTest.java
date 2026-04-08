@@ -40,7 +40,7 @@ class DatabaseConnectionManagerTest {
     void setUp() {
         ConnectionDTO h2 = dto("grp", "db", JDBC_A);
         ConfigLoaderStrategy<ConnectionConfig> loader = () -> new ConnectionConfig(List.of(h2));
-        manager = new DatabaseConnectionManager(loader);
+        manager = new DatabaseConnectionManager(loader, 5, null);
     }
 
     @AfterEach
@@ -89,22 +89,6 @@ class DatabaseConnectionManagerTest {
     void getConnection_unknownDb_throws() {
         assertThatThrownBy(() -> manager.getConnection("grp", "no-db"))
                 .isInstanceOf(ConnectionDetailNotFound.class);
-    }
-
-    // ── getActiveConnectionCount ───────────────────────────────────────────
-
-    @Test
-    void getActiveConnectionCount_whenIdlePool_returnsZero() {
-        assertThat(manager.getActiveConnectionCount()).isEqualTo(0);
-    }
-
-    @Test
-    void getActiveConnectionCount_withOpenConnection_returnsPositive() throws Exception {
-        try (Connection con = manager.getConnection("grp", "db")) {
-            assertThat(manager.getActiveConnectionCount()).isGreaterThan(0);
-        }
-        // after close, returned to pool
-        assertThat(manager.getActiveConnectionCount()).isEqualTo(0);
     }
 
     // ── closeAllConnections ────────────────────────────────────────────────

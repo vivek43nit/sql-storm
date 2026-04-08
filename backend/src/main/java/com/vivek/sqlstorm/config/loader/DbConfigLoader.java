@@ -4,9 +4,12 @@ import com.vivek.utils.parser.ConfigParserInterface;
 import com.vivek.utils.parser.ConfigParsingError;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
+import com.zaxxer.hikari.metrics.micrometer.MicrometerMetricsTrackerFactory;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.lang.Nullable;
 
 import java.io.Closeable;
 import java.io.File;
@@ -57,7 +60,8 @@ public class DbConfigLoader<T> implements RefreshableConfigLoader<T>, Closeable 
                           String table,
                           String column,
                           String format,
-                          ConfigParserInterface<T> parser) {
+                          ConfigParserInterface<T> parser,
+                          @Nullable MeterRegistry meterRegistry) {
         this.table = table;
         this.column = column;
         this.fileExtension = format;
@@ -70,7 +74,10 @@ public class DbConfigLoader<T> implements RefreshableConfigLoader<T>, Closeable 
         hk.setMaximumPoolSize(2);
         hk.setMinimumIdle(1);
         hk.setConnectionTimeout(30_000);
-        hk.setPoolName("fkblitz-cfg-" + table);
+        hk.setPoolName("fkblitz-config-db-" + table);
+        if (meterRegistry != null) {
+            hk.setMetricsTrackerFactory(new MicrometerMetricsTrackerFactory(meterRegistry));
+        }
         this.dataSource = new HikariDataSource(hk);
     }
 

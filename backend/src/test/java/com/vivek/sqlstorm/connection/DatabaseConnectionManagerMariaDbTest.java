@@ -174,21 +174,6 @@ class DatabaseConnectionManagerMariaDbTest extends AbstractMariaDbContainerTest 
         .isInstanceOf(Exception.class);
   }
 
-  // ── Active count ──────────────────────────────────────────────────────────
-
-  @Test
-  void getActiveConnectionCount_idlePool_returnsZero() {
-    assertThat(manager.getActiveConnectionCount()).isEqualTo(0);
-  }
-
-  @Test
-  void getActiveConnectionCount_withOpenConnection_returnsPositive() throws Exception {
-    try (Connection con = manager.getConnection("grp", "db")) {
-      assertThat(manager.getActiveConnectionCount()).isGreaterThan(0);
-    }
-    assertThat(manager.getActiveConnectionCount()).isEqualTo(0);
-  }
-
   // ── Defaults ──────────────────────────────────────────────────────────────
 
   @Test

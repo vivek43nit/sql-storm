@@ -59,7 +59,7 @@ class DatabaseMetaDataManagerTest {
         dto.setMaxPoolSize(3);
         ConfigLoaderStrategy<ConnectionConfig> connLoader =
                 () -> new ConnectionConfig(List.of(dto));
-        DatabaseConnectionManager connMgr = new DatabaseConnectionManager(connLoader);
+        DatabaseConnectionManager connMgr = new DatabaseConnectionManager(connLoader, 5, null);
         return new DatabaseMetaDataManager(connMgr, () -> customConfig);
     }
 
@@ -74,7 +74,7 @@ class DatabaseMetaDataManagerTest {
         dtoB.setMaxPoolSize(3);
         ConfigLoaderStrategy<ConnectionConfig> connLoader =
                 () -> new ConnectionConfig(List.of(dtoA, dtoB));
-        DatabaseConnectionManager connMgr = new DatabaseConnectionManager(connLoader);
+        DatabaseConnectionManager connMgr = new DatabaseConnectionManager(connLoader, 5, null);
         return new DatabaseMetaDataManager(connMgr, () -> customConfig);
     }
 

@@ -6,8 +6,12 @@ import com.vivek.sqlstorm.config.loader.ConfigLoaderStrategy;
 import com.vivek.sqlstorm.exceptions.ConnectionDetailNotFound;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
+import com.zaxxer.hikari.metrics.micrometer.MicrometerMetricsTrackerFactory;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 
 import java.sql.Connection;
@@ -29,7 +33,19 @@ public class DatabaseConnectionManager {
     private final Map<String, Map<String, ConnectionInfo>> connectionMap;
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
-    public DatabaseConnectionManager(ConfigLoaderStrategy<ConnectionConfig> connectionConfigLoader) {
+    /** Global default pool size — overrides ConnectionDTO.maxPoolSize (5) when set via env/property. */
+    private final int defaultMaxPoolSize;
+
+    /** Nullable — tests pass null; production Spring context always injects. */
+    @Nullable
+    private final MeterRegistry meterRegistry;
+
+    public DatabaseConnectionManager(
+            ConfigLoaderStrategy<ConnectionConfig> connectionConfigLoader,
+            @Value("${fkblitz.connection.default-max-pool-size:5}") int defaultMaxPoolSize,
+            @Nullable MeterRegistry meterRegistry) {
+        this.defaultMaxPoolSize = defaultMaxPoolSize;
+        this.meterRegistry = meterRegistry;
         this.connectionMap = new HashMap<>();
         this.configs = connectionConfigLoader.load();
         for (ConnectionDTO config : configs.getConnections()) {
@@ -88,24 +104,6 @@ public class DatabaseConnectionManager {
         return getConnectionInfo(group, database).getConfig();
     }
 
-    /**
-     * Returns the total number of active (in-use) connections across all pools.
-     */
-    public int getActiveConnectionCount() {
-        lock.readLock().lock();
-        try {
-            int count = 0;
-            for (Map<String, ConnectionInfo> group : connectionMap.values()) {
-                for (ConnectionInfo info : group.values()) {
-                    count += info.getPool().getHikariPoolMXBean().getActiveConnections();
-                }
-            }
-            return count;
-        } finally {
-            lock.readLock().unlock();
-        }
-    }
-
     public void closeAllConnections() {
         lock.writeLock().lock();
         try {
@@ -135,6 +133,7 @@ public class DatabaseConnectionManager {
             connectionMap.forEach((group, dbs) ->
                     dbs.entrySet().removeIf(e -> {
                         if (!newKeys.contains(group + "::" + e.getKey())) {
+                            deregisterPoolMetrics("fkblitz-data-" + group + "-" + e.getKey());
                             e.getValue().closePool();
                             log.info("Removed connection group={} db={}", group, e.getKey());
                             return true;
@@ -152,6 +151,7 @@ public class DatabaseConnectionManager {
                     groupMap.put(dto.getDbName(), new ConnectionInfo(dto, createDataSource(dto)));
                     log.info("Added new connection group={} db={}", dto.getGroup(), dto.getDbName());
                 } else if (!sameConnectionDetails(existing.getConfig(), dto)) {
+                    deregisterPoolMetrics("fkblitz-data-" + dto.getGroup() + "-" + dto.getDbName());
                     existing.closePool();
                     groupMap.put(dto.getDbName(), new ConnectionInfo(dto, createDataSource(dto)));
                     log.info("Updated connection details group={} db={}", dto.getGroup(), dto.getDbName());
@@ -194,12 +194,29 @@ public class DatabaseConnectionManager {
         hk.setUsername(config.getUser());
         hk.setPassword(config.getPassword());
         hk.setDriverClassName(config.getDriverClassName());
-        hk.setMaximumPoolSize(config.getMaxPoolSize());
+        // Use the global default unless the connection config explicitly overrides it
+        int poolSize = (config.getMaxPoolSize() > 0) ? config.getMaxPoolSize() : defaultMaxPoolSize;
+        hk.setMaximumPoolSize(poolSize);
         hk.setMinimumIdle(1);
         hk.setConnectionTimeout(30_000);
         hk.setMaxLifetime(configs.getConnectionExpiryTime());
-        hk.setPoolName("fkblitz-" + config.getGroup() + "-" + config.getDbName());
+        hk.setPoolName("fkblitz-data-" + config.getGroup() + "-" + config.getDbName());
+        if (meterRegistry != null) {
+            hk.setMetricsTrackerFactory(new MicrometerMetricsTrackerFactory(meterRegistry));
+        }
         return new HikariDataSource(hk);
+    }
+
+    /**
+     * Removes all Micrometer meters for a named pool from the registry.
+     * Must be called before closing a pool — Micrometer won't auto-deregister,
+     * and re-creating a same-named pool would bind to the stale meters.
+     */
+    private void deregisterPoolMetrics(String poolName) {
+        if (meterRegistry == null) return;
+        meterRegistry.getMeters().stream()
+                .filter(m -> poolName.equals(m.getId().getTag("pool")))
+                .forEach(meterRegistry::remove);
     }
 
     private static boolean sameConnectionDetails(ConnectionDTO a, ConnectionDTO b) {

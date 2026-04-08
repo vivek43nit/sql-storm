@@ -88,7 +88,7 @@ class DatabaseMetaDataManagerMariaDbTest extends AbstractMariaDbContainerTest {
     dto.setMaxPoolSize(5);
     ConfigLoaderStrategy<ConnectionConfig> loader =
         () -> new ConnectionConfig(List.of(dto));
-    DatabaseConnectionManager mgr = new DatabaseConnectionManager(loader);
+    DatabaseConnectionManager mgr = new DatabaseConnectionManager(loader, 5, null);
     return new DatabaseMetaDataManager(mgr, () -> new CustomRelationConfig(new HashMap<>()));
   }
 

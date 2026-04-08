@@ -46,7 +46,7 @@ class DatabaseMetaDataManagerConcurrencyTest {
         CustomRelationConfig emptyConfig = new CustomRelationConfig(new HashMap<>());
         ConfigLoaderStrategy<CustomRelationConfig> mappingLoader = () -> emptyConfig;
 
-        DatabaseConnectionManager connMgr = new DatabaseConnectionManager(connLoader);
+        DatabaseConnectionManager connMgr = new DatabaseConnectionManager(connLoader, 5, null);
         manager = new DatabaseMetaDataManager(connMgr, mappingLoader);
     }
 

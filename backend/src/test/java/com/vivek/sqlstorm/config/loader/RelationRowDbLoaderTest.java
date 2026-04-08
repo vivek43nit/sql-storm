@@ -66,7 +66,7 @@ class RelationRowDbLoaderTest {
              Statement st = conn.createStatement()) {
             st.execute("DELETE FROM " + TABLE);
         }
-        loader = new RelationRowDbLoader(JDBC_URL, USER, PASS, TABLE);
+        loader = new RelationRowDbLoader(JDBC_URL, USER, PASS, TABLE, null);
     }
 
     private void insert(String db, String tbl, String col, String refDb, String refTbl, String refCol,

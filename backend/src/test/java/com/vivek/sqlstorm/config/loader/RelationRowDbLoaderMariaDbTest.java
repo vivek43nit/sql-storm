@@ -83,7 +83,7 @@ class RelationRowDbLoaderMariaDbTest extends AbstractMariaDbContainerTest {
       st.execute("DELETE FROM " + TABLE);
     }
     loader = new RelationRowDbLoader(
-        MARIADB.getJdbcUrl(), MARIADB.getUsername(), MARIADB.getPassword(), TABLE);
+        MARIADB.getJdbcUrl(), MARIADB.getUsername(), MARIADB.getPassword(), TABLE, null);
   }
 
   private void insert(String db, String tbl, String col,

@@ -15,6 +15,7 @@ import com.vivek.sqlstorm.constants.Constants;
 import com.vivek.sqlstorm.connection.DatabaseConnectionManager;
 import com.vivek.sqlstorm.metadata.DatabaseMetaDataManager;
 import com.vivek.utils.parser.ConfigParserInterface;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationRunner;
@@ -36,7 +37,8 @@ public class ConfigLoaderConfig {
     // ── Connection config loader ────────────────────────────────────────────
 
     @Bean
-    public ConfigLoaderStrategy<ConnectionConfig> connectionConfigLoader(FkBlitzConfigProperties props) {
+    public ConfigLoaderStrategy<ConnectionConfig> connectionConfigLoader(
+            FkBlitzConfigProperties props, MeterRegistry meterRegistry) {
         FkBlitzConfigProperties.ConfigSource src = props.getConfig().getConnection();
         return switch (src.getSource()) {
             case "api" -> {
@@ -57,7 +59,8 @@ public class ConfigLoaderConfig {
                         src.getDb().getTable(),
                         src.getDb().getColumn(),
                         src.getDb().getFormat(),
-                        parserForConnectionFormat(src.getDb().getFormat()));
+                        parserForConnectionFormat(src.getDb().getFormat()),
+                        meterRegistry);
             }
             default -> new FileConfigLoader<>(
                     ConnectionConfig.class,
@@ -69,7 +72,8 @@ public class ConfigLoaderConfig {
     // ── Custom mapping config loader ───────────────────────────────────────
 
     @Bean
-    public ConfigLoaderStrategy<CustomRelationConfig> customMappingConfigLoader(FkBlitzConfigProperties props) {
+    public ConfigLoaderStrategy<CustomRelationConfig> customMappingConfigLoader(
+            FkBlitzConfigProperties props, MeterRegistry meterRegistry) {
         FkBlitzConfigProperties.ConfigSource src = props.getConfig().getCustomMapping();
         return switch (src.getSource()) {
             case "api" -> {
@@ -90,7 +94,8 @@ public class ConfigLoaderConfig {
                         src.getDb().getTable(),
                         src.getDb().getColumn(),
                         src.getDb().getFormat(),
-                        new CustomRelationConfigJsonParser());
+                        new CustomRelationConfigJsonParser(),
+                        meterRegistry);
             }
             case "relation-table" -> {
                 validateDbConfig(src.getDb(), "custom-mapping");
@@ -98,7 +103,8 @@ public class ConfigLoaderConfig {
                         src.getDb().getUrl(),
                         src.getDb().getUsername(),
                         src.getDb().getPassword(),
-                        src.getDb().getTable());
+                        src.getDb().getTable(),
+                        meterRegistry);
             }
             default -> new FileConfigLoader<>(
                     CustomRelationConfig.class,

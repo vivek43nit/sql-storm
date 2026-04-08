@@ -50,7 +50,7 @@ class DbConfigLoaderTest {
       throw new RuntimeException(e);
     }
     return new DbConfigLoader<>(JDBC_URL, USER, PASS, TABLE, COLUMN, "json",
-        new CustomRelationConfigJsonParser());
+        new CustomRelationConfigJsonParser(), null);
   }
 
   @Test
@@ -100,7 +100,7 @@ class DbConfigLoaderTest {
     }
     DbConfigLoader<CustomRelationConfig> loader =
         new DbConfigLoader<>(JDBC_URL, USER, PASS, TABLE, COLUMN, "json",
-            new CustomRelationConfigJsonParser());
+            new CustomRelationConfigJsonParser(), null);
     assertThatThrownBy(loader::load).isInstanceOf(ConfigLoadException.class);
   }
 
@@ -109,7 +109,7 @@ class DbConfigLoaderTest {
     // Loader with a bad JDBC URL — refresh must swallow the error
     DbConfigLoader<CustomRelationConfig> loader =
         new DbConfigLoader<>("jdbc:h2:mem:nonexistent_xxx", USER, PASS, TABLE, COLUMN, "json",
-            new CustomRelationConfigJsonParser());
+            new CustomRelationConfigJsonParser(), null);
     // load() would fail; refresh() should be fail-open
     loader.refresh(); // must not throw
   }
