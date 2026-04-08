@@ -6,62 +6,57 @@ const BASE = '/fkblitz';
 /**
  * Metadata browse E2E tests.
  * Uses the seeded demo database (docker/mariadb/init/seed.sql):
- *   users → orders → order_items, products
+ *   users, orders, order_items, products
  *
- * Covers: group selection, DB selection, table list, FK badge visibility.
+ * Nav is driven by <select> dropdowns (#nav-group-select, #nav-db-select).
+ * Tables are rendered as plain <div> elements in the sidebar.
  */
 test.describe('Metadata Browse', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(`${BASE}/`);
-    // Ensure app is loaded
-    await expect(page.locator('nav, [data-testid="nav-panel"]')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('#nav-group-select')).toBeVisible({ timeout: 10_000 });
   });
 
-  test('selecting a group populates the database list', async ({ page }) => {
-    // Click the first group in the nav panel
-    const groupItem = page.locator('[data-testid="group-item"], .group-item').first();
-    await expect(groupItem).toBeVisible({ timeout: 10_000 });
-    await groupItem.click();
+  test('selecting a group populates the database dropdown', async ({ page }) => {
+    await page.selectOption('#nav-group-select', 'demo');
 
-    // Database list should appear
-    await expect(
-      page.locator('[data-testid="db-item"], .db-item, [data-type="database"]').first()
-    ).toBeVisible({ timeout: 5_000 });
+    // Wait for databases API to respond and populate the select with a real option
+    await expect(page.locator('#nav-db-select option[value="demo"]')).toBeAttached({ timeout: 8_000 });
+    const options = await page.locator('#nav-db-select option').allTextContents();
+    expect(options.some(o => o.trim().length > 0 && o !== '— select —')).toBeTruthy();
   });
 
   test('selecting a database populates the table list', async ({ page }) => {
-    // Select group then database
-    await page.locator('[data-testid="group-item"], .group-item').first().click();
-    await page.locator('[data-testid="db-item"], .db-item').first().click();
+    await page.selectOption('#nav-group-select', 'demo');
+    await expect(page.locator('#nav-db-select option[value="demo"]')).toBeAttached({ timeout: 8_000 });
+    await page.selectOption('#nav-db-select', 'demo');
 
-    // At least one table should appear (seeded: users, orders, order_items, products)
-    await expect(
-      page.locator('[data-testid="table-item"], .table-item').first()
-    ).toBeVisible({ timeout: 10_000 });
+    // At least one table div should appear in the sidebar
+    await expect(page.locator('[data-testid="table-item-users"]')).toBeVisible({ timeout: 10_000 });
   });
 
-  test('seeded tables are visible in the list', async ({ page }) => {
-    await page.locator('[data-testid="group-item"], .group-item').first().click();
-    await page.locator('[data-testid="db-item"], .db-item').first().click();
+  test('seeded tables are visible in the sidebar', async ({ page }) => {
+    await page.selectOption('#nav-group-select', 'demo');
+    await page.selectOption('#nav-db-select', 'demo');
 
-    // Wait for tables to load
-    await page.waitForSelector('[data-testid="table-item"], .table-item', { timeout: 10_000 });
+    await page.waitForTimeout(1_000); // allow tables to render
+    const sidebarText = await page.locator('div[style*="sidebar"], nav, aside, div').allTextContents();
+    const combined = sidebarText.join(' ').toLowerCase();
 
-    const tableText = await page.locator('[data-testid="table-item"], .table-item').allTextContents();
-    const lowerNames = tableText.map((t) => t.toLowerCase());
-
-    // At least one of the seeded tables should be visible
-    expect(lowerNames.some((n) => n.includes('users') || n.includes('orders'))).toBeTruthy();
+    expect(combined).toContain('users');
+    expect(combined).toContain('orders');
   });
 
-  test('clicking a table loads column grid with FK indicators', async ({ page }) => {
-    await page.locator('[data-testid="group-item"], .group-item').first().click();
-    await page.locator('[data-testid="db-item"], .db-item').first().click();
-    await page.locator('[data-testid="table-item"], .table-item').first().click();
+  test('clicking a table loads column grid', async ({ page }) => {
+    await page.selectOption('#nav-group-select', 'demo');
+    await expect(page.locator('#nav-db-select option[value="demo"]')).toBeAttached({ timeout: 8_000 });
+    await page.selectOption('#nav-db-select', 'demo');
+
+    // Click "users" table in the sidebar
+    await expect(page.locator('[data-testid="table-item-users"]')).toBeVisible({ timeout: 8_000 });
+    await page.locator('[data-testid="table-item-users"]').click();
 
     // Table grid must appear with at least one column header
-    await expect(
-      page.locator('table th, [data-testid="column-header"], .column-header').first()
-    ).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('table th').first()).toBeVisible({ timeout: 10_000 });
   });
 });

@@ -17,14 +17,14 @@ module.exports = defineConfig({
   testDir: './specs',
   timeout: 30_000,
   retries: process.env.CI ? 1 : 0,
-  workers: process.env.CI ? 2 : undefined,
+  workers: 1,
   reporter: [
     ['list'],
     ['html', { open: 'never' }],
   ],
 
   use: {
-    baseURL: process.env.BASE_URL || 'http://localhost:9044',
+    baseURL: process.env.BASE_URL || 'http://localhost:9071',
     // Re-use stored auth state (populated by globalSetup)
     storageState: 'auth.json',
     trace: 'on-first-retry',

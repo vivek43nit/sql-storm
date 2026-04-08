@@ -1,0 +1,12 @@
+<!-- DatabaseConnection.xml for the docker-compose E2E / local demo stack.
+     Mounted into the fkblitz container at /etc/fkblitz/DatabaseConnection.xml.
+     Points to the MariaDB service seeded with demo data (users, orders, products). -->
+<CONNECTIONS CONNECTION_EXPIRY_TIME="3600000" MAX_RETRY_COUNT="1">
+
+    <CONNECTION ID="1" GROUP="demo" DB_NAME="demo"
+                USER_NAME="fkblitz" PASSWORD="fkblitz123"
+                DRIVER_CLASS_NAME="org.mariadb.jdbc.Driver"
+                DATABASE_URL="jdbc:mariadb://mariadb:3306/demo?useInformationSchema=true"
+                UPDATABLE="true" DELETABLE="true"/>
+
+</CONNECTIONS>

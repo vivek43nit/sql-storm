@@ -2,9 +2,9 @@ services:
   fkblitz:
     build: .
     ports:
-      - "9044:9044"
+      - "${FKBLITZ_PORT:-9044}:9044"
     volumes:
-      - ./backend/src/main/resources/DatabaseConnection.xml:/etc/fkblitz/DatabaseConnection.xml:ro
+      - ./docker/fkblitz/DatabaseConnection.xml:/etc/fkblitz/DatabaseConnection.xml:ro
     environment:
       FKBLITZ_ADMIN_USER: ${FKBLITZ_ADMIN_USER:-admin}
       FKBLITZ_ADMIN_PASSWORD: ${FKBLITZ_ADMIN_PASSWORD:-changeme}
@@ -18,11 +18,11 @@ services:
       - redis
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9044/fkblitz/actuator/health/liveness"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9044/fkblitz/actuator/health/liveness || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 40s
+      start_period: 60s
 
   # Optional: sample MariaDB for trying FkBlitz locally
   # Remove this block if you're connecting to an existing database

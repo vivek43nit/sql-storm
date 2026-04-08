@@ -61,14 +61,13 @@ public class RowMutationController {
                     }
                 }
             }
-            Connection con = databaseManager.getConnection(group, database);
-
             StringJoiner cols = new StringJoiner(", ");
             StringJoiner placeholders = new StringJoiner(", ");
             data.keySet().forEach(k -> { cols.add("`" + k + "`"); placeholders.add("?"); });
-
             String sql = String.format("INSERT INTO `%s` (%s) VALUES (%s)", table, cols, placeholders);
-            try (PreparedStatement ps = con.prepareStatement(sql)) {
+
+            try (Connection con = databaseManager.getConnection(group, database);
+                 PreparedStatement ps = con.prepareStatement(sql)) {
                 int i = 1;
                 for (Object val : data.values()) ps.setObject(i++, val);
                 ps.executeUpdate();
@@ -102,13 +101,12 @@ public class RowMutationController {
                     }
                 }
             }
-            Connection con = databaseManager.getConnection(group, database);
-
             StringJoiner setClauses = new StringJoiner(", ");
             data.keySet().forEach(k -> setClauses.add("`" + k + "` = ?"));
-
             String sql = String.format("UPDATE `%s` SET %s WHERE `%s` = ?", table, setClauses, pk);
-            try (PreparedStatement ps = con.prepareStatement(sql)) {
+
+            try (Connection con = databaseManager.getConnection(group, database);
+                 PreparedStatement ps = con.prepareStatement(sql)) {
                 int i = 1;
                 for (Object val : data.values()) ps.setObject(i++, val);
                 ps.setObject(i, pkValue);
@@ -135,10 +133,9 @@ public class RowMutationController {
             if (!databaseManager.isDeletableConnection(group, database)) {
                 return ResponseEntity.status(403).body("Delete permission is prohibited for this database");
             }
-            Connection con = databaseManager.getConnection(group, database);
-
             String sql = String.format("DELETE FROM `%s` WHERE `%s` = ?", table, pk);
-            try (PreparedStatement ps = con.prepareStatement(sql)) {
+            try (Connection con = databaseManager.getConnection(group, database);
+                 PreparedStatement ps = con.prepareStatement(sql)) {
                 ps.setObject(1, pkValue);
                 int affected = ps.executeUpdate();
                 if (affected == 0) return ResponseEntity.badRequest().body("No rows deleted");
