@@ -397,7 +397,7 @@ ConfigParserFactory.registerParser(ConnectionConfig.class, new YamlParser());
 
 | Limitation | Detail |
 |------------|--------|
-| Millisecond-boundary race on change detection | `refresh()` queries `MAX(updated_at)` and then fetches all active rows. If a row is written in the same millisecond as the `MAX` query, the write may complete *after* the SELECT and be silently missed until the next poll cycle. **Mitigation:** add a 1-second buffer — query `MAX(updated_at) WHERE updated_at < NOW() - INTERVAL 1 SECOND` so only fully-settled writes are picked up. This adds at most 1s of extra latency to detection but eliminates the race. |
+| 1-second detection latency | To eliminate the millisecond-boundary race, both SQL queries use `WHERE updated_at <= NOW() - INTERVAL 1 SECOND` (evaluated DB-side). Rows written within the last second are invisible until the buffer expires. Detection latency is at most `refresh-interval-seconds + 1s`. |
 | Redis pub/sub is fire-and-forget | If a replica is down when a `fkblitz:config-changed` message is published, it misses the notification and falls back to polling at `refresh-interval-seconds`. There is no message persistence or replay. |
 | `RelationRowDbLoader` does not merge with JSON custom relations | Relations loaded from the DB table and relations from `custom_mapping.json` are used by different code paths. If both sources are configured simultaneously, `mapping_tables` and `auto_resolve` from the JSON file are not available to the DB-sourced config. |
 
