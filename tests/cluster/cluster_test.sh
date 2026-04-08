@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# cluster_test.sh — Multi-node Redis pub/sub propagation test
+# cluster_test.sh — Multi-node cluster validation
 #
-# Validates that a config change (new row in relation_mapping) detected by node1
-# is propagated via Redis pub/sub to node2 within a tight window.
+# Scenarios:
+#   1. Redis session sharing  — login on node1, authenticate on node2
+#   2. Config propagation     — relation inserted on DB, both nodes pick it up
+#   3. Soft-delete propagation — relation deactivated, both nodes drop it
 #
 # Prerequisites: Docker, Docker Compose v2, jq, curl, mysql-client (or mariadb-client)
 # Usage: bash tests/cluster/cluster_test.sh
@@ -86,7 +88,24 @@ docker compose -f "$COMPOSE_FILE" up -d --build
 wait_for_health "$NODE1" "node1"
 wait_for_health "$NODE2" "node2"
 
-# ── Scenario 1: Insert a relation, verify both nodes pick it up ────────────────
+# ── Scenario 1: Redis session sharing ────────────────────────────────────────
+info "Testing cross-node session sharing via Redis..."
+
+node1_cookie="$(mktemp)"
+curl -sf -c "$node1_cookie" -X POST "$NODE1/api/login" \
+  -d "username=admin&password=changeme" > /dev/null
+
+# Use the node1 session cookie to hit node2 — must succeed without re-login
+response=$(curl -sf -b "$node1_cookie" "$NODE2/api/groups" 2>/dev/null || echo "")
+rm -f "$node1_cookie"
+
+if echo "$response" | jq -e 'length > 0' > /dev/null 2>&1; then
+  pass "node2 accepted node1 session cookie (Redis session sharing works)"
+else
+  fail "node2 rejected node1 session cookie — Redis session sharing broken (response: $response)"
+fi
+
+# ── Scenario 2: Insert a relation, verify both nodes pick it up ────────────────
 info "Inserting test relation into MariaDB..."
 mysql -h "$MARIADB_HOST" -P "$MARIADB_PORT" -u "$MARIADB_USER" -p"$MARIADB_PASS" \
   "$MARIADB_DB" -e "
@@ -102,7 +121,7 @@ poll_for_relation "$NODE1" "$DB_NAME" "orders" "node1" 30
 # Node2 should see it almost immediately via Redis pub/sub (< 5s after node1 detects)
 poll_for_relation "$NODE2" "$DB_NAME" "orders" "node2" 15
 
-# ── Scenario 2: Soft-delete, verify both nodes remove it ──────────────────────
+# ── Scenario 3: Soft-delete, verify both nodes remove it ──────────────────────
 info "Soft-deleting the relation..."
 mysql -h "$MARIADB_HOST" -P "$MARIADB_PORT" -u "$MARIADB_USER" -p"$MARIADB_PASS" \
   "$MARIADB_DB" -e "
