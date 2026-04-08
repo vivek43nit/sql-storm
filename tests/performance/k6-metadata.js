@@ -28,10 +28,10 @@ import { Rate } from 'k6/metrics';
 
 const errorRate = new Rate('errors');
 
-const BASE_URL  = __ENV.BASE_URL  || 'http://localhost:9044/fkblitz';
+const BASE_URL  = __ENV.BASE_URL  || 'http://localhost:9071/fkblitz';
 const USERNAME  = __ENV.USERNAME  || 'admin';
 const PASSWORD  = __ENV.PASSWORD  || 'changeme';
-const GROUP     = __ENV.GROUP     || 'localhost';
+const GROUP     = __ENV.GROUP     || 'demo';
 const DATABASE  = __ENV.DATABASE  || 'demo';
 
 export const options = {
@@ -47,22 +47,20 @@ export const options = {
 };
 
 export function setup() {
-  const jar = http.cookieJar();
   const loginRes = http.post(
     `${BASE_URL}/api/login`,
     { username: USERNAME, password: PASSWORD },
-    { jar }
   );
   if (loginRes.status !== 200) {
     throw new Error(`Login failed: HTTP ${loginRes.status} — ${loginRes.body}`);
   }
-  // Extract JSESSIONID from the jar
-  const cookies = jar.cookiesForURL(`${BASE_URL}/api/login`);
-  const sessionId = cookies['JSESSIONID'] ? cookies['JSESSIONID'][0].value : null;
-  if (!sessionId) {
-    throw new Error('No JSESSIONID in response — check credentials and login URL');
+  // Extract JSESSIONID directly from Set-Cookie response header
+  const setCookie = loginRes.headers['Set-Cookie'] || '';
+  const match = setCookie.match(/JSESSIONID=([^;]+)/);
+  if (!match) {
+    throw new Error(`No JSESSIONID in Set-Cookie: ${setCookie}`);
   }
-  return { sessionId };
+  return { sessionId: match[1] };
 }
 
 export default function (data) {

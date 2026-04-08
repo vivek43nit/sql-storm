@@ -6,7 +6,10 @@
  *
  * Traffic mix (per VU per iteration):
  *   80% — GET /api/tables (metadata read — hits snapshotRef)
- *   20% — POST /api/admin/reload (config reload — swaps snapshotRef atomically)
+ *   20% — GET /api/admin/relations (full relation traversal — concurrent snapshotRef reader)
+ *
+ * Reload happens automatically via the background scheduler. This test validates
+ * zero CME/NPE across concurrent metadata readers at high concurrency.
  *
  * Threshold: http_req_failed < 0.005 (< 0.5% errors = CME/500 tolerance is near-zero)
  *
@@ -25,10 +28,10 @@ import { Rate } from 'k6/metrics';
 
 const errorRate = new Rate('errors');
 
-const BASE_URL = __ENV.BASE_URL  || 'http://localhost:9044/fkblitz';
+const BASE_URL = __ENV.BASE_URL  || 'http://localhost:9071/fkblitz';
 const USERNAME = __ENV.USERNAME  || 'admin';
 const PASSWORD = __ENV.PASSWORD  || 'changeme';
-const GROUP    = __ENV.GROUP     || 'localhost';
+const GROUP    = __ENV.GROUP     || 'demo';
 const DATABASE = __ENV.DATABASE  || 'demo';
 
 export const options = {
@@ -46,19 +49,17 @@ export const options = {
 };
 
 export function setup() {
-  const jar = http.cookieJar();
   const loginRes = http.post(
     `${BASE_URL}/api/login`,
     { username: USERNAME, password: PASSWORD },
-    { jar }
   );
   if (loginRes.status !== 200) {
     throw new Error(`Login failed: HTTP ${loginRes.status}`);
   }
-  const cookies = jar.cookiesForURL(`${BASE_URL}/api/login`);
-  const sessionId = cookies['JSESSIONID'] ? cookies['JSESSIONID'][0].value : null;
-  if (!sessionId) throw new Error('No JSESSIONID');
-  return { sessionId };
+  const setCookie = loginRes.headers['Set-Cookie'] || '';
+  const match = setCookie.match(/JSESSIONID=([^;]+)/);
+  if (!match) throw new Error(`No JSESSIONID in Set-Cookie: ${setCookie}`);
+  return { sessionId: match[1] };
 }
 
 export default function (data) {
@@ -80,15 +81,15 @@ export default function (data) {
     });
     errorRate.add(!ok);
   } else {
-    // 20%: admin reload — triggers snapshotRef swap
-    const res = http.post(
-      `${BASE_URL}/api/admin/reload`,
-      null,
-      { ...params, tags: { name: 'config-reload' } }
+    // 20%: heavier relation traversal — exercises snapshotRef concurrently with reads
+    // (no explicit reload endpoint; reload happens via scheduler in background)
+    const res = http.get(
+      `${BASE_URL}/api/admin/relations?group=${GROUP}&database=${DATABASE}`,
+      { ...params, tags: { name: 'relations-read' } }
     );
-    // 200 or 403 (if READ_ONLY role) are acceptable; 500 is not
     const ok = check(res, {
-      'reload not 500': (r) => r.status !== 500,
+      'relations 200': (r) => r.status === 200,
+      'no 500': (r) => r.status !== 500,
     });
     errorRate.add(!ok);
   }
