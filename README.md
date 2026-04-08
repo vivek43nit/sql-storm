@@ -138,13 +138,35 @@ FkBlitz ships a full test pyramid — from fast unit tests up to multi-node clus
 
 ### Performance Baselines
 
-| Endpoint | p50 | p95 | p99 | VUs |
-|---|---|---|---|---|
-| `GET /api/tables` | — | < 500ms | < 1s | 50 |
-| `POST /api/login` | — | < 200ms | < 500ms | 100 |
-| Concurrent reload | — | < 500ms | < 1s | 50 |
+> Measured on Apple M-series (local Docker stack). Captured: 2026-04-08.
 
-> Baselines are measured on first CI run and updated per release. Fill in after initial `k6` run.
+| Script | VUs | p50 | p95 | p99 | Errors |
+|---|---|---|---|---|---|
+| `k6-metadata.js` — `GET /api/tables` | 50 | 1.75ms | **2.72ms** | 4.08ms | 0.00% |
+| `k6-auth.js` — `POST /api/login` | 10→100 | 646ms | 5.09s | — | 0.00% (zero 5xx) |
+| `k6-reload-concurrent.js` — concurrent reads | 50 | 2.24ms | **5.48ms** | — | 0.00% |
+
+### Capacity Benchmark
+
+`k6-capacity.js` runs a VU ladder (10 → 25 → 50 → 100 → 150 → 200) and captures JVM heap, JDBC pool, and Tomcat thread usage via `capacity-poll.sh`. Use the results to size your production deployment.
+
+> Measured at 200 VUs on Apple M-series, `FKBLITZ_MAX_POOL_SIZE=100`, `FKBLITZ_TOMCAT_THREADS_MAX=400`, `-Xmx1g`.
+
+| Resource | Peak (200 VUs) | Recommended config |
+|---|---|---|
+| JDBC connections active | < 1 (sub-ms borrows) | `FKBLITZ_MAX_POOL_SIZE=10` |
+| Tomcat threads busy | 15 | `FKBLITZ_TOMCAT_THREADS_MAX=50` |
+| JVM heap | 198 MB | `-Xmx256m` |
+| `latency_groups` p95 | 41ms | — |
+
+```sh
+bash tests/performance/capacity-poll.sh > /tmp/capacity-metrics.csv &
+docker run --rm --network host \
+  -v "$(pwd)/tests/performance:/tests" \
+  grafana/k6 run /tests/k6-capacity.js 2>&1 | tee /tmp/capacity-k6.txt
+kill %1
+bash tests/performance/capacity-report.sh /tmp/capacity-metrics.csv /tmp/capacity-k6.txt
+```
 
 ### How to Run Each Layer
 
@@ -167,7 +189,7 @@ docker run --rm --network host \
   -v "$(pwd)/tests/performance:/tests" \
   -e BASE_URL=http://localhost:9044/fkblitz \
   -e USERNAME=admin -e PASSWORD=changeme \
-  -e GROUP=localhost -e DATABASE=demo \
+  -e GROUP=demo -e DATABASE=demo \
   grafana/k6 run /tests/k6-metadata.js
 
 # Browser E2E tests (requires full stack running)
