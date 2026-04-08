@@ -24,8 +24,8 @@
 package com.vivek.sqlstorm.dto;
 
 import com.vivek.sqlstorm.datahandler.DataManager;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  *
@@ -48,8 +48,8 @@ public class ColumnDTO {
 
     public ColumnDTO(String name) {
         this.name = name;
-        this.referTo = new ArrayList<ColumnPath>();
-        this.referencedBy = new ArrayList<ColumnPath>();
+        this.referTo = new CopyOnWriteArrayList<>();
+        this.referencedBy = new CopyOnWriteArrayList<>();
     }
     
     public ColumnDTO(String name, String description, int dataType, int size, int nullable) {
@@ -59,8 +59,8 @@ public class ColumnDTO {
         this.size = size;
         this.nullable = nullable;
         
-        this.referTo = new ArrayList<ColumnPath>();
-        this.referencedBy = new ArrayList<ColumnPath>();
+        this.referTo = new CopyOnWriteArrayList<>();
+        this.referencedBy = new CopyOnWriteArrayList<>();
     }
 
     public boolean isIndexed() {

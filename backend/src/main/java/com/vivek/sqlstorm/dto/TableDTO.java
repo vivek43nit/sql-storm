@@ -24,9 +24,9 @@
 package com.vivek.sqlstorm.dto;
 
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 /**
@@ -39,7 +39,7 @@ public class TableDTO {
     private String remark;
     private List<String> autoResolveColumns;
     private List<String> columnNamesInDbOrder;
-    private Map<String, ColumnDTO> columns;
+    private final Map<String, ColumnDTO> columns = new ConcurrentHashMap<>();
     private String primaryKey;
     
     private MappingTableDto jointTableMapping;
@@ -103,24 +103,15 @@ public class TableDTO {
 
     
     public ColumnDTO getColumnMetaData(String name) {
-        return (columns == null)? null : columns.get(name);
+        return columns.get(name);
     }
 
     public void setColumnMetaData(ColumnDTO column) {
-        if(this.columns == null){
-            this.columns = new HashMap<String, ColumnDTO>();
-        }
         this.columns.put(column.getName(), column);
     }
-    
+
     public ColumnDTO getOrAddColumnMetaData(String name) {
-        if(columns == null){
-            columns = new HashMap<String, ColumnDTO>();
-            columns.put(name, new ColumnDTO(name));
-        }else if(!columns.containsKey(name)){
-            columns.put(name, new ColumnDTO(name));
-        }
-        return columns.get(name);
+        return columns.computeIfAbsent(name, ColumnDTO::new);
     }
     
     public int getWeight(){

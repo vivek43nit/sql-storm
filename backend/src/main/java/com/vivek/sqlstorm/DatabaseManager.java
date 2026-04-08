@@ -54,8 +54,7 @@ public class DatabaseManager {
     }
     
     //wrapping database connection manager 
-    public Connection getConnection(String groupName, String dbName) throws SQLException, ConnectionDetailNotFound, ClassNotFoundException 
-    {
+    public Connection getConnection(String groupName, String dbName) throws SQLException, ConnectionDetailNotFound {
         return connectionManager.getConnection(groupName, dbName);
     }
 
@@ -78,11 +77,11 @@ public class DatabaseManager {
         return metaDataManager.getDbNames(groupName);
     }
     
-    public Collection<TableDTO> getTables(String group, String database) throws ConnectionDetailNotFound, SQLException, ClassNotFoundException{
+    public Collection<TableDTO> getTables(String group, String database) throws ConnectionDetailNotFound, SQLException {
         return metaDataManager.getTables(group, database);
     }
-    
-    public DatabaseDTO getMetaData(String group, String database) throws ConnectionDetailNotFound, SQLException, ClassNotFoundException{
+
+    public DatabaseDTO getMetaData(String group, String database) throws ConnectionDetailNotFound, SQLException {
         return metaDataManager.getMetaData(group, database);
     }
 

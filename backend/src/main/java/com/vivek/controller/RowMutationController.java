@@ -76,7 +76,7 @@ public class RowMutationController {
             logger.info("AUDIT ADD_ROW user='" + currentUser() + "' group=" + group + " db=" + database + " table=" + table);
             metrics.recordCrudOperation("add", table);
             return ResponseEntity.ok("Row added successfully");
-        } catch (ConnectionDetailNotFound | SQLException | ClassNotFoundException e) {
+        } catch (ConnectionDetailNotFound | SQLException e) {
             logger.error("Add row error: " + e.getMessage(), e);
             return ResponseEntity.internalServerError().body(e.getMessage());
         }
@@ -118,7 +118,7 @@ public class RowMutationController {
             logger.info("AUDIT EDIT_ROW user='" + currentUser() + "' group=" + group + " db=" + database + " table=" + table + " pk=" + pk + " pkValue=" + pkValue);
             metrics.recordCrudOperation("edit", table);
             return ResponseEntity.ok("Row updated successfully");
-        } catch (ConnectionDetailNotFound | SQLException | ClassNotFoundException e) {
+        } catch (ConnectionDetailNotFound | SQLException e) {
             logger.error("Edit row error: " + e.getMessage(), e);
             return ResponseEntity.internalServerError().body(e.getMessage());
         }
@@ -146,7 +146,7 @@ public class RowMutationController {
             logger.info("AUDIT DELETE_ROW user='" + currentUser() + "' group=" + group + " db=" + database + " table=" + table + " pk=" + pk + " pkValue=" + pkValue);
             metrics.recordCrudOperation("delete", table);
             return ResponseEntity.ok("Row deleted successfully");
-        } catch (ConnectionDetailNotFound | SQLException | ClassNotFoundException e) {
+        } catch (ConnectionDetailNotFound | SQLException e) {
             logger.error("Delete row error: " + e.getMessage(), e);
             return ResponseEntity.internalServerError().body(e.getMessage());
         }

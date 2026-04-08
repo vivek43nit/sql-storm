@@ -4,12 +4,13 @@ import com.vivek.sqlstorm.config.connection.ConnectionConfig;
 import com.vivek.sqlstorm.config.connection.ConnectionDTO;
 import com.vivek.sqlstorm.config.loader.ConfigLoaderStrategy;
 import com.vivek.sqlstorm.exceptions.ConnectionDetailNotFound;
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
@@ -33,7 +34,7 @@ public class DatabaseConnectionManager {
         this.configs = connectionConfigLoader.load();
         for (ConnectionDTO config : configs.getConnections()) {
             log.debug("Registering connection: {}", config);
-            addConnectionInfo(new ConnectionInfo(config));
+            addConnectionInfo(new ConnectionInfo(config, createDataSource(config)));
         }
     }
 
@@ -68,17 +69,18 @@ public class DatabaseConnectionManager {
         return getConnectionInfo(groupName, dbName).getConfig().isDeletable();
     }
 
+    /**
+     * Returns a connection from the per-database HikariCP pool.
+     * Uses the read lock — multiple callers can borrow connections concurrently.
+     * HikariCP manages pool health and validation internally.
+     */
     public Connection getConnection(String groupName, String dbName)
-            throws SQLException, ConnectionDetailNotFound, ClassNotFoundException {
-        lock.writeLock().lock();
+            throws SQLException, ConnectionDetailNotFound {
+        lock.readLock().lock();
         try {
-            ConnectionInfo connInfo = getConnectionInfo(groupName, dbName);
-            if (!isValidConnection(connInfo)) {
-                connInfo.setConnection(createConnection(connInfo.getConfig()));
-            }
-            return connInfo.getConnection();
+            return getConnectionInfo(groupName, dbName).getPool().getConnection();
         } finally {
-            lock.writeLock().unlock();
+            lock.readLock().unlock();
         }
     }
 
@@ -87,8 +89,7 @@ public class DatabaseConnectionManager {
     }
 
     /**
-     * Returns the count of connections that are currently open (non-null, not closed).
-     * Used by {@link com.vivek.metrics.FkBlitzMetrics} to expose a gauge.
+     * Returns the total number of active (in-use) connections across all pools.
      */
     public int getActiveConnectionCount() {
         lock.readLock().lock();
@@ -96,10 +97,7 @@ public class DatabaseConnectionManager {
             int count = 0;
             for (Map<String, ConnectionInfo> group : connectionMap.values()) {
                 for (ConnectionInfo info : group.values()) {
-                    Connection c = info.getConnection();
-                    try {
-                        if (c != null && !c.isClosed()) count++;
-                    } catch (SQLException ignored) { }
+                    count += info.getPool().getHikariPoolMXBean().getActiveConnections();
                 }
             }
             return count;
@@ -112,33 +110,32 @@ public class DatabaseConnectionManager {
         lock.writeLock().lock();
         try {
             connectionMap.values().forEach(dbs ->
-                    dbs.values().forEach(ConnectionInfo::closeConnection));
+                    dbs.values().forEach(ConnectionInfo::closePool));
         } finally {
             lock.writeLock().unlock();
         }
     }
 
     /**
-     * Hot-reload: called by DbConfigLoader's change listener when a new config is detected.
-     * Diffs the old and new connection lists:
-     *   - Removed entries: close and discard
-     *   - New entries: add with lazy connection
-     *   - Changed entries (URL/credentials): close existing, replace config
-     *   - Unchanged entries: update flags (UPDATABLE, DELETABLE) only
+     * Hot-reload: diffs the old and new connection lists.
+     *   - Removed entries: close pool and discard
+     *   - New entries: create pool and add
+     *   - Changed entries (URL/credentials): close old pool, create new pool
+     *   - Unchanged entries: update flags (UPDATABLE, DELETABLE) and pool size only
      */
     public void reloadConnections(ConnectionConfig newConfig) {
-        log.info("Reloading connection config — {} connections in new config", newConfig.getConnections().size());
+        log.info("Reloading connection config — {} connections in new config",
+                newConfig.getConnections().size());
         lock.writeLock().lock();
         try {
             Set<String> newKeys = newConfig.getConnections().stream()
                     .map(c -> c.getGroup() + "::" + c.getDbName())
                     .collect(Collectors.toSet());
 
-            // Close and remove entries that are no longer in the new config
             connectionMap.forEach((group, dbs) ->
                     dbs.entrySet().removeIf(e -> {
                         if (!newKeys.contains(group + "::" + e.getKey())) {
-                            e.getValue().closeConnection();
+                            e.getValue().closePool();
                             log.info("Removed connection group={} db={}", group, e.getKey());
                             return true;
                         }
@@ -146,21 +143,20 @@ public class DatabaseConnectionManager {
                     }));
             connectionMap.entrySet().removeIf(e -> e.getValue().isEmpty());
 
-            // Add new or update existing
             for (ConnectionDTO dto : newConfig.getConnections()) {
                 Map<String, ConnectionInfo> groupMap = connectionMap.computeIfAbsent(
                         dto.getGroup(), k -> new ConcurrentHashMap<>());
                 ConnectionInfo existing = groupMap.get(dto.getDbName());
 
                 if (existing == null) {
-                    groupMap.put(dto.getDbName(), new ConnectionInfo(dto));
+                    groupMap.put(dto.getDbName(), new ConnectionInfo(dto, createDataSource(dto)));
                     log.info("Added new connection group={} db={}", dto.getGroup(), dto.getDbName());
                 } else if (!sameConnectionDetails(existing.getConfig(), dto)) {
-                    existing.closeConnection();
-                    existing.setConfig(dto);
+                    existing.closePool();
+                    groupMap.put(dto.getDbName(), new ConnectionInfo(dto, createDataSource(dto)));
                     log.info("Updated connection details group={} db={}", dto.getGroup(), dto.getDbName());
                 } else {
-                    // Same connection — only update flags
+                    // Same connection — update config flags only (no pool recreation)
                     existing.setConfig(dto);
                 }
             }
@@ -192,24 +188,18 @@ public class DatabaseConnectionManager {
                 .put(info.getConfig().getDbName(), info);
     }
 
-    private boolean isValidConnection(ConnectionInfo connection) throws SQLException {
-        return connection.getConnection() != null
-                && System.currentTimeMillis() - connection.getConnectTime() < configs.getConnectionExpiryTime()
-                && !connection.getConnection().isClosed();
-    }
-
-    private Connection createConnection(ConnectionDTO config) throws ClassNotFoundException, SQLException {
-        Class.forName(config.getDriverClassName());
-        DriverManager.setLoginTimeout(10);
-        SQLException last = null;
-        for (int i = 0; i < configs.getMaxRetryCount(); i++) {
-            try {
-                return DriverManager.getConnection(config.getDatabaseURL(), config.getUser(), config.getPassword());
-            } catch (SQLException ex) {
-                last = ex;
-            }
-        }
-        throw last;
+    private HikariDataSource createDataSource(ConnectionDTO config) {
+        HikariConfig hk = new HikariConfig();
+        hk.setJdbcUrl(config.getDatabaseURL());
+        hk.setUsername(config.getUser());
+        hk.setPassword(config.getPassword());
+        hk.setDriverClassName(config.getDriverClassName());
+        hk.setMaximumPoolSize(config.getMaxPoolSize());
+        hk.setMinimumIdle(1);
+        hk.setConnectionTimeout(30_000);
+        hk.setMaxLifetime(configs.getConnectionExpiryTime());
+        hk.setPoolName("fkblitz-" + config.getGroup() + "-" + config.getDbName());
+        return new HikariDataSource(hk);
     }
 
     private static boolean sameConnectionDetails(ConnectionDTO a, ConnectionDTO b) {
@@ -222,31 +212,21 @@ public class DatabaseConnectionManager {
     // ── Inner class ────────────────────────────────────────────────────────
 
     private static class ConnectionInfo {
-        private long connectTime;
         private ConnectionDTO config;
-        private Connection connection;
+        private final HikariDataSource pool;
 
-        ConnectionInfo(ConnectionDTO config) {
+        ConnectionInfo(ConnectionDTO config, HikariDataSource pool) {
             this.config = config;
+            this.pool = pool;
         }
 
-        long getConnectTime() { return connectTime; }
         ConnectionDTO getConfig() { return config; }
         void setConfig(ConnectionDTO config) { this.config = config; }
-        Connection getConnection() { return connection; }
+        HikariDataSource getPool() { return pool; }
 
-        void setConnection(Connection connection) {
-            closeConnection();
-            this.connection = connection;
-            this.connectTime = System.currentTimeMillis();
-        }
-
-        void closeConnection() {
-            if (connection != null) {
-                try { connection.close(); } catch (SQLException ex) {
-                    log.error("Error closing connection: {}", ex.getMessage());
-                }
-                connection = null;
+        void closePool() {
+            if (pool != null && !pool.isClosed()) {
+                pool.close();
             }
         }
     }

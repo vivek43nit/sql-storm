@@ -68,7 +68,7 @@ public class QueryController {
             metrics.recordQuerySuccess(group, req.getDatabase(), System.currentTimeMillis() - start);
             return ResponseEntity.ok(dto);
 
-        } catch (ConnectionDetailNotFound | SQLException | ClassNotFoundException e) {
+        } catch (ConnectionDetailNotFound | SQLException e) {
             metrics.recordQueryError(group, req.getDatabase());
             logger.error("Execute error: " + e.getMessage(), e);
             return ResponseEntity.internalServerError().body(e.getMessage());
@@ -163,7 +163,7 @@ public class QueryController {
             }
             return ResponseEntity.ok(results);
 
-        } catch (ConnectionDetailNotFound | SQLException | ClassNotFoundException e) {
+        } catch (ConnectionDetailNotFound | SQLException e) {
             logger.error("DeReferences error: " + e.getMessage(), e);
             return ResponseEntity.internalServerError().body(e.getMessage());
         }
@@ -204,7 +204,7 @@ public class QueryController {
 
             return ResponseEntity.ok(results);
 
-        } catch (ConnectionDetailNotFound | SQLException | ClassNotFoundException e) {
+        } catch (ConnectionDetailNotFound | SQLException e) {
             logger.error("Trace error: " + e.getMessage(), e);
             return ResponseEntity.internalServerError().body(e.getMessage());
         }

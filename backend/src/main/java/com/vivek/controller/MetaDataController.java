@@ -55,7 +55,7 @@ public class MetaDataController {
                 result.add(entry);
             }
             return ResponseEntity.ok(result);
-        } catch (ConnectionDetailNotFound | SQLException | ClassNotFoundException e) {
+        } catch (ConnectionDetailNotFound | SQLException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
@@ -86,7 +86,7 @@ public class MetaDataController {
                 }
             }
             return ResponseEntity.ok(result);
-        } catch (ConnectionDetailNotFound | SQLException | ClassNotFoundException e) {
+        } catch (ConnectionDetailNotFound | SQLException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
@@ -115,7 +115,7 @@ public class MetaDataController {
                 if (!dbSuggestions.isEmpty()) suggestions.put(db, dbSuggestions);
             }
             return ResponseEntity.ok(suggestions);
-        } catch (ConnectionDetailNotFound | SQLException | ClassNotFoundException e) {
+        } catch (ConnectionDetailNotFound | SQLException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
