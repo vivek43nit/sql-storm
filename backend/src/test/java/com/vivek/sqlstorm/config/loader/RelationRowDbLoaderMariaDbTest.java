@@ -86,9 +86,31 @@ class RelationRowDbLoaderMariaDbTest extends AbstractMariaDbContainerTest {
         MARIADB.getJdbcUrl(), MARIADB.getUsername(), MARIADB.getPassword(), TABLE, null);
   }
 
+  /**
+   * Inserts a row with updated_at = NOW() - INTERVAL 2 SECOND so it is
+   * outside the 1-second refresh buffer and is immediately visible on load/refresh.
+   */
   private void insert(String db, String tbl, String col,
                       String refDb, String refTbl, String refCol,
                       String condJson, boolean active) throws Exception {
+    try (Connection conn = DriverManager.getConnection(
+        MARIADB.getJdbcUrl(), MARIADB.getUsername(), MARIADB.getPassword());
+         Statement st = conn.createStatement()) {
+      String cond = condJson == null ? "NULL" : "'" + condJson + "'";
+      st.execute(String.format(
+          "INSERT INTO %s (database_name,table_name,column_name," +
+          "ref_database_name,ref_table_name,ref_column_name,conditions_json,is_active," +
+          "created_at,updated_at) " +
+          "VALUES ('%s','%s','%s','%s','%s','%s',%s,%d," +
+          "NOW() - INTERVAL 2 SECOND, NOW() - INTERVAL 2 SECOND)",
+          TABLE, db, tbl, col, refDb, refTbl, refCol, cond, active ? 1 : 0));
+    }
+  }
+
+  /** Inserts a row with updated_at = NOW() — within the 1-second buffer. */
+  private void insertNow(String db, String tbl, String col,
+                         String refDb, String refTbl, String refCol,
+                         String condJson, boolean active) throws Exception {
     try (Connection conn = DriverManager.getConnection(
         MARIADB.getJdbcUrl(), MARIADB.getUsername(), MARIADB.getPassword());
          Statement st = conn.createStatement()) {
@@ -196,13 +218,14 @@ class RelationRowDbLoaderMariaDbTest extends AbstractMariaDbContainerTest {
     insert("db1", "payments", "order_id", "db1", "orders", "id", null, true);
     loader.load();
 
-    Thread.sleep(1100); // must cross DATETIME precision boundary BEFORE the update
     try (Connection conn = DriverManager.getConnection(
         MARIADB.getJdbcUrl(), MARIADB.getUsername(), MARIADB.getPassword());
          Statement st = conn.createStatement()) {
-      // MariaDB ON UPDATE CURRENT_TIMESTAMP bumps updated_at automatically
+      // ON UPDATE CURRENT_TIMESTAMP bumps updated_at to NOW(). We then sleep so
+      // that timestamp falls outside the 1-second refresh buffer before calling refresh().
       st.execute("UPDATE " + TABLE + " SET is_active = 0 WHERE table_name = 'payments'");
     }
+    Thread.sleep(1200); // wait for payments row's new updated_at to clear the buffer
 
     AtomicReference<CustomRelationConfig> received = new AtomicReference<>();
     loader.setChangeListener(received::set);
@@ -210,6 +233,37 @@ class RelationRowDbLoaderMariaDbTest extends AbstractMariaDbContainerTest {
 
     assertThat(received.get()).isNotNull();
     assertThat(received.get().getDatabases().get("db1").getRelations()).hasSize(1);
+  }
+
+  // ── Buffer boundary ───────────────────────────────────────────────────────
+
+  @Test
+  void refresh_rowInsertedWithinBuffer_notVisibleUntilBufferExpires() throws Exception {
+    // Establish baseline with a settled (past) row so lastMaxUpdatedAt > 0
+    insert("db1", "orders", "user_id", "db1", "users", "id", null, true);
+    loader.load();
+
+    // Insert a row with current timestamp — within the 1-second buffer
+    insertNow("db1", "payments", "order_id", "db1", "orders", "id", null, true);
+
+    AtomicReference<CustomRelationConfig> received = new AtomicReference<>();
+    loader.setChangeListener(received::set);
+
+    // Immediately refresh — new row must NOT be visible (within buffer)
+    loader.refresh();
+    assertThat(received.get())
+        .as("row inserted within 1-second buffer must not trigger a reload")
+        .isNull();
+
+    // Wait for buffer to expire
+    Thread.sleep(1200);
+
+    // Refresh again — row must now be visible
+    loader.refresh();
+    assertThat(received.get())
+        .as("row must be visible after buffer expires")
+        .isNotNull();
+    assertThat(received.get().getDatabases().get("db1").getRelations()).hasSize(2);
   }
 
   // ── Cross-database ────────────────────────────────────────────────────────

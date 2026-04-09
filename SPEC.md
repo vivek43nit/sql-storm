@@ -75,14 +75,17 @@ FkBlitz is a self-hosted, browser-based MySQL/MariaDB client that enables fast n
 
 | ID | Requirement |
 |----|-------------|
-| NFR-01 | Connection pool must handle concurrent requests without race conditions (`ConcurrentHashMap`). |
-| NFR-02 | Config file parsing must be thread-safe and result cached after first parse. |
+| NFR-01 | Each database connection must be backed by a HikariCP pool; concurrent requests must not race on pool acquisition. |
+| NFR-02 | Metadata snapshot swap must be lock-free (`AtomicReference`); readers must never block writers. |
 | NFR-03 | Metadata loading for one database must not block requests to other databases. |
 | NFR-04 | The backend must run on Java 17+. |
 | NFR-05 | The backend must start via `mvn spring-boot:run` or as a self-contained JAR. |
 | NFR-06 | The frontend must build to a static bundle embeddable in the JAR. |
 | NFR-07 | Connection credentials must never appear in application code; read from external config. |
 | NFR-08 | The system must be deployable as a single Docker image via `docker compose up --build`. |
+| NFR-09 | All nodes in a multi-replica deployment must converge to the same relation config within `refresh-interval-seconds` (without Redis) or sub-second (with Redis pub/sub). |
+| NFR-10 | The system must expose Prometheus metrics at `/actuator/prometheus` including per-pool HikariCP metrics and application-level query counters. |
+| NFR-11 | Minimum 80% JaCoCo line coverage on business-logic classes, enforced in CI. |
 
 ---
 
@@ -100,8 +103,9 @@ FkBlitz is a self-hosted, browser-based MySQL/MariaDB client that enables fast n
 │         Spring Boot 3  —  port 9044  —  /fkblitz          │
 │                                                           │
 │  ┌──────────────────────────────────────────────────┐    │
-│  │               Spring Security                    │    │
-│  │  (form login, session, 401 on API fail)          │    │
+│  │        Spring Security + RBAC                    │    │
+│  │  form login / OAuth2 / OIDC — ADMIN/RW/RO roles  │    │
+│  │  rate limiting (Bucket4j), sensitive col masking │    │
 │  └──────────────────────┬───────────────────────────┘    │
 │                         │                                 │
 │  ┌──────────┬───────────▼──────────┬──────────────────┐  │
@@ -109,22 +113,36 @@ FkBlitz is a self-hosted, browser-based MySQL/MariaDB client that enables fast n
 │  │Controller│  /api/execute        │ Controller       │  │
 │  │/api/     │  /api/references     │ /api/row/add     │  │
 │  │groups    │  /api/dereferences   │ /api/row/edit    │  │
-│  │/databases│  /api/trace          │ /api/row         │  │
-│  │/tables   │                      │ (DELETE)         │  │
+│  │/databases│  /api/trace          │ /api/row (DEL)   │  │
+│  │/tables   │                      │                  │  │
 │  └──────────┴──────────┬───────────┴──────────────────┘  │
 │                        │                                  │
 │  ┌─────────────────────▼─────────────────────────────┐   │
 │  │              DatabaseManager (Facade)             │   │
-│  │  ┌────────────────────┐  ┌──────────────────────┐ │   │
-│  │  │ ConnectionManager  │  │ MetaDataManager      │ │   │
-│  │  │ (JDBC pool)        │  │ (schema + FK cache)  │ │   │
-│  │  └─────────┬──────────┘  └──────────────────────┘ │   │
-│  └────────────┼──────────────────────────────────────┘   │
-└───────────────┼───────────────────────────────────────────┘
-                │ JDBC
-    ┌───────────▼──────────────┐
-    │   MySQL / MariaDB         │
-    └───────────────────────────┘
+│  │  ┌──────────────────────┐  ┌────────────────────┐ │   │
+│  │  │ DatabaseConnection   │  │ MetaDataManager    │ │   │
+│  │  │ Manager (HikariCP    │  │ (schema + FK cache │ │   │
+│  │  │  pool per db)        │  │  snapshotRef swap) │ │   │
+│  │  └──────────┬───────────┘  └────────────────────┘ │   │
+│  └─────────────┼──────────────────────────────────────┘  │
+│                │                                          │
+│  ┌─────────────▼──────────────────────────────────────┐  │
+│  │          Config Loader Layer                       │  │
+│  │  DbConfigLoader  RelationRowDbLoader  FileLoader   │  │
+│  │  (connection cfg)  (relation_mapping  (XML/JSON)   │  │
+│  │                     table, HikariCP)               │  │
+│  └─────────────────────────┬──────────────────────────┘  │
+└─────────────────────────────┼──────────────────────────────┘
+                              │ JDBC (HikariCP pools)
+              ┌───────────────▼──────────────┐
+              │      MySQL / MariaDB          │
+              └───────────────────────────────┘
+                              │
+              ┌───────────────▼──────────────┐
+              │  Redis (optional)             │
+              │  sessions + pub/sub           │
+              │  fkblitz:config-changed       │
+              └───────────────────────────────┘
 ```
 
 ### 4.2 Config Resolution
@@ -367,14 +385,37 @@ ConfigParserFactory.registerParser(ConnectionConfig.class, new YamlParser());
 
 ## 9. Known Limitations
 
+### Config & Credentials
+
 | Limitation | Detail |
 |------------|--------|
-| No unit tests | No automated test suite; all testing is manual against a live database. |
-| Single connection per (group, db) | One JDBC connection cached per pair; not a true pool. High-concurrency deployments should sit behind a connection pool proxy. |
-| Plaintext credentials | Passwords stored as plaintext in config XML/JSON. Restrict file permissions (`chmod 600`). |
-| MySQL/MariaDB only | PostgreSQL and other databases are not tested. `INFORMATION_SCHEMA` behaviour may differ. |
-| No HTTPS | TLS must be terminated at a reverse proxy (nginx, Caddy). |
-| Session-based auth only | No OAuth2, LDAP, or API key support. |
+| Plaintext credentials in config files | Passwords in `DatabaseConnection.xml` and `custom_mapping.json` are stored as plaintext. Restrict file permissions (`chmod 600`) or use the `db`/`api` config source with environment-variable injection. |
+| MySQL/MariaDB only | PostgreSQL and other databases are not supported. `INFORMATION_SCHEMA` structure and FK discovery (`getImportedKeys`) behaviour differs across vendors. |
+| No HTTPS termination | TLS must be terminated at a reverse proxy (nginx, Caddy, or Kubernetes ingress). The application has no built-in TLS. |
+
+### Relation Refresh (RelationRowDbLoader)
+
+| Limitation | Detail |
+|------------|--------|
+| 1-second detection latency | To eliminate the millisecond-boundary race, both SQL queries use `WHERE updated_at <= NOW() - INTERVAL 1 SECOND` (evaluated DB-side). Rows written within the last second are invisible until the buffer expires. Detection latency is at most `refresh-interval-seconds + 1s`. |
+| Redis pub/sub is fire-and-forget | If a replica is down when a `fkblitz:config-changed` message is published, it misses the notification and falls back to polling at `refresh-interval-seconds`. There is no message persistence or replay. |
+| `RelationRowDbLoader` does not merge with JSON custom relations | Relations loaded from the DB table and relations from `custom_mapping.json` are used by different code paths. If both sources are configured simultaneously, `mapping_tables` and `auto_resolve` from the JSON file are not available to the DB-sourced config. |
+
+### Custom Relations (custom_mapping.json)
+
+| Limitation | Detail |
+|------------|--------|
+| `conditions` supports exact-match and IN-list only | No range queries, regex, NULL checks, or multi-column compound conditions. Keys are ANDed — OR logic is not supported. |
+| `ONE_TO_ONE` / `ONE_TO_MANY` mapping table types | These types exist in the enum but behave identically to `MANY_TO_MANY` in the current navigation logic — the type field is not used to change join strategy. |
+| Cross-group relations not supported | `referenced_database_name` must be a database accessible within the same FkBlitz `GROUP`. There is no mechanism to navigate across groups. |
+| No depth limit on `auto_resolve` | Deep or circular `auto_resolve` chains can cause wide fan-out on `Trace` requests. No cycle detection is implemented. |
+
+### Security & Auth
+
+| Limitation | Detail |
+|------------|--------|
+| Rate limits are per-node, in-memory | Bucket4j buckets are not shared across replicas. A user can exceed the rate limit by distributing requests across nodes. |
+| Session invalidation is local when Redis is disabled | Without Redis, logging out on one node does not invalidate sessions on other nodes. |
 
 ---
 

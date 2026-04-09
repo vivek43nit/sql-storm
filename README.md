@@ -204,6 +204,36 @@ npx playwright test
 
 For team deployments, authentication setup, Kubernetes, Redis, Prometheus, and all other production concerns — see the **[Enterprise Configuration Guide](docs/ENTERPRISE.md)**.
 
+### Resource Sizing
+
+Three env vars cover the majority of production tuning. The numbers below come from the [capacity benchmark](#capacity-benchmark) above.
+
+| Env var | Recommended | Basis |
+|---|---|---|
+| `FKBLITZ_MAX_POOL_SIZE` | `10` | JDBC borrows are sub-ms; max 7 active at 100 VUs with real SQL — no contention |
+| `FKBLITZ_TOMCAT_THREADS_MAX` | `≥ peak concurrent users` | At 200 VUs + `sleep(0.1)`, 50 threads saturated immediately; set ≥ your expected peak |
+| `JAVA_TOOL_OPTIONS` | `-Xmx256m` | 196 MB heap peak at 200 VUs; 256 MB gives 30% headroom |
+
+Docker Compose override example:
+
+```sh
+FKBLITZ_MAX_POOL_SIZE=10 \
+FKBLITZ_TOMCAT_THREADS_MAX=200 \
+JAVA_TOOL_OPTIONS="-Xmx256m" \
+docker compose up -d
+```
+
+Kubernetes (`values.yaml`):
+
+```yaml
+env:
+  FKBLITZ_MAX_POOL_SIZE: "10"
+  FKBLITZ_TOMCAT_THREADS_MAX: "200"
+  JAVA_TOOL_OPTIONS: "-Xmx256m"
+```
+
+> Rule of thumb: `FKBLITZ_TOMCAT_THREADS_MAX` should be ≥ your peak concurrent active users. Re-run `k6-verify.js` at your target VU count to validate before deploying to production.
+
 ---
 
 ## Contributing

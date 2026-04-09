@@ -10,15 +10,16 @@ For getting started locally, see the [README](../README.md).
 
 1. [Authentication & Access Control](#1-authentication--access-control)
 2. [Sensitive Columns](#2-sensitive-columns)
-3. [Database Connection Reference](#3-database-connection-reference)
-4. [Remote Config Loading](#4-remote-config-loading)
-5. [Redis](#5-redis)
-6. [Observability](#6-observability)
-7. [Kubernetes & Helm](#7-kubernetes--helm)
-8. [API Documentation](#8-api-documentation)
-9. [Security Hardening](#9-security-hardening)
-10. [Releasing](#10-releasing)
-11. [Scaling](#11-scaling)
+3. [Custom Relations (custom_mapping.json)](#3-custom-relations-custom_mappingjson)
+4. [Database Connection Reference](#4-database-connection-reference)
+5. [Remote Config Loading](#5-remote-config-loading)
+6. [Redis](#6-redis)
+7. [Observability](#7-observability)
+8. [Kubernetes & Helm](#8-kubernetes--helm)
+9. [API Documentation](#9-api-documentation)
+10. [Security Hardening](#10-security-hardening)
+11. [Releasing](#11-releasing)
+12. [Scaling](#12-scaling)
 
 ---
 
@@ -181,7 +182,222 @@ Mark columns as sensitive in `custom_mapping.json`. Users without `SENSITIVE_DAT
 
 ---
 
-## 3. Database Connection Reference
+## 3. Custom Relations (custom_mapping.json)
+
+`custom_mapping.json` extends the schema FkBlitz reads from `INFORMATION_SCHEMA` with soft/virtual FK relationships that are not enforced at the database level. It also configures many-to-many junction tables, column auto-expansion, and sensitive column masking.
+
+### File location
+
+FkBlitz searches for the file in this order:
+
+1. `/etc/fkblitz/custom_mapping.json`
+2. `~/.fkblitz/custom_mapping.json`
+3. `~/custom_mapping.json`
+4. Classpath fallback (bundled empty file)
+
+### Top-level structure
+
+```json
+{
+  "databases": {
+    "<database-name>": {
+      "relations":      [...],
+      "mapping_tables": {...},
+      "auto_resolve":   {...}
+    }
+  },
+  "sensitiveColumns": [...]
+}
+```
+
+---
+
+### `relations` — custom foreign key definitions
+
+Each entry declares one virtual FK link. FkBlitz shows it alongside real FK relationships in the UI.
+
+| Field | Required | Description |
+|---|---|---|
+| `table_name` | Yes | Source table |
+| `table_column` | Yes | Source column holding the reference value |
+| `referenced_table_name` | Yes | Target table |
+| `referenced_column_name` | Yes | Target column being referenced |
+| `referenced_database_name` | No | Target database (defaults to the enclosing `databases` key) |
+| `conditions` | No | Extra filter — see [Conditions](#conditions) below |
+
+**Same-database example:**
+
+```json
+{
+  "databases": {
+    "mydb": {
+      "relations": [
+        {
+          "table_name":             "audit_log",
+          "table_column":           "entity_id",
+          "referenced_table_name":  "orders",
+          "referenced_column_name": "id"
+        }
+      ]
+    }
+  }
+}
+```
+
+**Cross-database example** (orders in `ops_db` referencing users in `auth_db`):
+
+```json
+{
+  "databases": {
+    "ops_db": {
+      "relations": [
+        {
+          "table_name":               "orders",
+          "table_column":             "created_by",
+          "referenced_database_name": "auth_db",
+          "referenced_table_name":    "users",
+          "referenced_column_name":   "id"
+        }
+      ]
+    }
+  }
+}
+```
+
+---
+
+### Conditions
+
+`conditions` is an optional JSON object on a relation that adds column filters when navigating back-references. Keys are column names on the **source** table; values are the required values.
+
+**Exact match** — only show `audit_log` rows where `entity_type = 'ORDER'`:
+
+```json
+{
+  "table_name":             "audit_log",
+  "table_column":           "entity_id",
+  "referenced_table_name":  "orders",
+  "referenced_column_name": "id",
+  "conditions": {
+    "entity_type": "ORDER"
+  }
+}
+```
+
+This appends `AND entity_type='ORDER'` to the back-reference query.
+
+**IN list** — match any value from a set:
+
+```json
+{
+  "conditions": {
+    "status": ["pending", "processing"]
+  }
+}
+```
+
+This appends `AND status IN ('pending','processing')`.
+
+Multiple keys are ANDed together. String values are exact-match; array values become `IN (...)`.
+
+---
+
+### `mapping_tables` — many-to-many junction tables
+
+Declares junction tables so FkBlitz can navigate through them transparently.
+
+| Field | Required | Description |
+|---|---|---|
+| `type` | Yes | `ONE_TO_ONE`, `ONE_TO_MANY`, or `MANY_TO_MANY` |
+| `from` | Yes | Column referencing the left-hand entity |
+| `to` | Yes | Column referencing the right-hand entity |
+| `include-self` | No | If `true`, include the junction row itself in results (default: `false`) |
+
+```json
+{
+  "databases": {
+    "mydb": {
+      "mapping_tables": {
+        "order_tags": {
+          "type":         "MANY_TO_MANY",
+          "from":         "order_id",
+          "to":           "tag_id",
+          "include-self": false
+        }
+      }
+    }
+  }
+}
+```
+
+Navigating `orders.id` will now jump through `order_tags` to `tags` automatically.
+
+---
+
+### `auto_resolve` — automatic column expansion
+
+Lists columns that FkBlitz should auto-expand when tracing a row, without requiring a click.
+
+```json
+{
+  "databases": {
+    "mydb": {
+      "auto_resolve": {
+        "orders": ["user_id", "product_id"]
+      }
+    }
+  }
+}
+```
+
+When a `Trace` is triggered on a row in `orders`, `user_id` and `product_id` are followed automatically.
+
+---
+
+### Full example
+
+```json
+{
+  "databases": {
+    "mydb": {
+      "relations": [
+        {
+          "table_name":             "audit_log",
+          "table_column":           "entity_id",
+          "referenced_table_name":  "orders",
+          "referenced_column_name": "id",
+          "conditions": { "entity_type": "ORDER" }
+        },
+        {
+          "table_name":               "orders",
+          "table_column":             "created_by",
+          "referenced_database_name": "auth_db",
+          "referenced_table_name":    "users",
+          "referenced_column_name":   "id"
+        }
+      ],
+      "mapping_tables": {
+        "order_tags": {
+          "type": "MANY_TO_MANY",
+          "from": "order_id",
+          "to":   "tag_id"
+        }
+      },
+      "auto_resolve": {
+        "orders": ["user_id"]
+      }
+    }
+  },
+  "sensitiveColumns": [
+    { "database": "mydb", "table": "users", "column": "password_hash" },
+    { "database": "*",    "table": "payment_cards", "column": "cvv" }
+  ]
+}
+```
+
+---
+
+## 4. Database Connection Reference
 
 Full attribute reference for `DatabaseConnection.xml`:
 
@@ -208,7 +424,7 @@ FkBlitz searches for the file in this order:
 
 ---
 
-## 4. Remote Config Loading
+## 5. Remote Config Loading
 
 Instead of reading config from disk, FkBlitz can pull `DatabaseConnection.xml` and `custom_mapping.json` from an HTTP endpoint or a database table. A restart is required for `file` and `api` sources; the `db` source supports auto-refresh.
 
@@ -250,7 +466,7 @@ On initial load failure, FkBlitz fails fast. On refresh failure, the previous co
 
 ---
 
-## 5. Redis
+## 6. Redis
 
 Redis enables distributed session storage and metadata caching — required when running more than one replica.
 
@@ -270,6 +486,23 @@ When `enabled: false` (default):
 When `enabled: true`:
 - Sessions are stored in Redis with a 30-minute TTL (configurable via `spring.session.timeout`)
 - Schema metadata is cached in Redis with a 5-minute TTL and evicted on config reload
+- **Relation config changes are propagated to all nodes via pub/sub** (see below)
+
+### Relation config invalidation (pub/sub)
+
+When the `db` config source detects a change in the `relation_mapping` table, it publishes a message to the Redis channel `fkblitz:config-changed`. Every replica subscribes to this channel and triggers an immediate `refresh()` on receipt — collapsing the inter-node staleness window from `refresh-interval-seconds` down to sub-second.
+
+```
+Node 1 detects MAX(updated_at) changed
+  → reloads relation config
+  → publishes to fkblitz:config-changed
+
+Node 2, Node 3 receive the message
+  → each triggers refresh() immediately
+  → all nodes converge within <1s
+```
+
+Without Redis, each replica polls independently at `refresh-interval-seconds`. With Redis, the first node to detect a change notifies all others instantly.
 
 ### Redis persistence
 
@@ -283,11 +516,13 @@ This is the expected and acceptable behaviour. The Helm chart uses `emptyDir` fo
 
 ---
 
-## 6. Observability
+## 7. Observability
 
 ### Prometheus Metrics
 
 Exposed at `GET /fkblitz/actuator/prometheus` (requires `ADMIN` role).
+
+**Application metrics:**
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
@@ -295,7 +530,37 @@ Exposed at `GET /fkblitz/actuator/prometheus` (requires `ADMIN` role).
 | `fkblitz_query_requests_total` | Counter | `group`, `database`, `status` | Query count by outcome |
 | `fkblitz_crud_operations_total` | Counter | `operation`, `table` | Add/edit/delete count |
 | `fkblitz_auth_failures_total` | Counter | — | Failed login attempts |
-| `fkblitz_connections_active` | Gauge | — | Active DB connections |
+
+**HikariCP connection pool metrics** (per pool, via Micrometer):
+
+| Metric | Labels | Description |
+|--------|--------|-------------|
+| `hikaricp_connections_active` | `pool` | Connections currently executing a query |
+| `hikaricp_connections_idle` | `pool` | Connections sitting idle in the pool |
+| `hikaricp_connections_pending` | `pool` | Threads waiting for a connection — key pressure signal |
+| `hikaricp_connections_max` | `pool` | Pool size ceiling |
+| `hikaricp_connections_acquire_seconds` | `pool` | Time to borrow a connection from the pool |
+| `hikaricp_connections_timeout_total` | `pool` | Cumulative connection timeout count |
+
+**Pool naming convention:**
+
+| Pool name pattern | Used by |
+|---|---|
+| `fkblitz-auth` | Spring Security H2/MySQL auth datasource |
+| `fkblitz-config-db-{table}` | `DbConfigLoader` — connection/relation config from DB |
+| `fkblitz-config-relation` | `RelationRowDbLoader` — dedicated relation mapping pool |
+| `fkblitz-data-{group}-{dbName}` | User data connections (one pool per configured database) |
+
+Example PromQL to monitor pool pressure across all data connections:
+
+```promql
+# Threads waiting for a connection (should be 0)
+sum(hikaricp_connections_pending{pool=~"fkblitz-data-.*"})
+
+# Max borrow latency over last 5 minutes
+max(rate(hikaricp_connections_acquire_seconds_sum{pool=~"fkblitz-data-.*"}[5m])
+  / rate(hikaricp_connections_acquire_seconds_count{pool=~"fkblitz-data-.*"}[5m]))
+```
 
 ### Grafana Dashboard
 
@@ -333,7 +598,7 @@ In dev/staging (no `prod` profile), logs are human-readable console output.
 
 ---
 
-## 7. Kubernetes & Helm
+## 8. Kubernetes & Helm
 
 ### Install
 
@@ -419,7 +684,7 @@ The chart creates a single `Secret` resource from `secret.*` values. For product
 
 ---
 
-## 8. API Documentation
+## 9. API Documentation
 
 Swagger UI is available at `/fkblitz/swagger-ui.html` for users with the `ADMIN` role.
 
@@ -437,7 +702,7 @@ springdoc:
 
 ---
 
-## 9. Security Hardening
+## 10. Security Hardening
 
 ### Security Headers
 
@@ -476,7 +741,7 @@ Rate limits are per-user key. Unauthenticated requests share an `"anonymous"` bu
 
 ---
 
-## 10. Releasing
+## 11. Releasing
 
 Push a `release/vX.Y.Z` branch to trigger the automated CI/CD pipeline:
 
@@ -512,7 +777,7 @@ The changelog groups commits by type. Use [conventional commits](https://www.con
 
 ---
 
-## 11. Scaling
+## 12. Scaling
 
 ### Single node
 
@@ -549,3 +814,17 @@ Sessions are stored in Redis and shared across all replicas. Schema metadata cac
 ```
 
 Each fkblitz pod connects directly to your monitored MySQL/MariaDB databases — those connections are not pooled through Redis.
+
+### Resource sizing
+
+Based on capacity benchmarks (see [README performance baselines](../README.md#capacity-benchmark)):
+
+| Setting | Recommended | Basis |
+|---|---|---|
+| `FKBLITZ_MAX_POOL_SIZE` | `10` | Max 7 JDBC connections active at 100 VUs with real SQL; 0 pending |
+| `FKBLITZ_TOMCAT_THREADS_MAX` | `≥ peak concurrent users` | Little's Law: at 200 VUs + 100ms think time, need ~130+ threads; 50 threads saturated |
+| `-Xmx` | `256m` | 196 MB heap peak at 200 VUs; 256 MB gives 30% headroom |
+
+> The metadata endpoints (`/api/groups`, `/api/tables`) are pure in-memory reads — JDBC pool is not touched. Size `FKBLITZ_MAX_POOL_SIZE` based on concurrent SQL query users, not total browser users.
+
+Re-run `tests/performance/k6-verify.js` at your expected peak VU count after adjusting config to validate before production rollout.
